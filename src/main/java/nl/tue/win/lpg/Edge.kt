@@ -1,61 +1,52 @@
-package nl.tue.win.lpg;
+package nl.tue.win.lpg
 
-import org.jetbrains.annotations.NotNull;
+import nl.tue.win.lpg.encoder.CyJsonCodec
+import nl.tue.win.lpg.encoder.GraphCodec
 
-import java.util.HashMap;
-import java.util.Set;
+class Edge(val source: Node, val target: Node, val id: String, vararg labels: String = arrayOf()) {
 
-public class Edge extends HashMap<String, Object> {
+    val labels: Set<String>
+    val properties: HashMap<String, Any> = HashMap()
 
-    private final @NotNull Node source;
-
-    private final @NotNull Node target;
-
-    private final @NotNull Set<String> labels;
-
-    public Edge(@NotNull Node source, @NotNull Node target) {
-        this.source = source;
-        this.target = target;
-        this.labels = Set.of();
+    init {
+        this.labels = setOf(*labels)
     }
 
-    public Edge(@NotNull Node source, @NotNull Node target, String ... labels) {
-        this.source = source;
-        this.target = target;
-        this.labels = Set.of(labels);
+    operator fun get(property: String): Any? {
+        return properties[property]
     }
 
-    public @NotNull Node getSource() {
-        return source;
+    operator fun set(property: String, value: Any) {
+        properties[property] = value
     }
 
-    public @NotNull Node getTarget() {
-        return target;
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Edge
+
+        if (source != other.source) return false
+        if (target != other.target) return false
+        if (labels != other.labels) return false
+        if (properties != other.properties) return false
+
+        return true
     }
 
-    public @NotNull Set<String> getLabels() {
-        return labels;
+    override fun hashCode(): Int {
+        var result = source.hashCode()
+        result = 31 * result + target.hashCode()
+        result = 31 * result + labels.hashCode()
+        result = 31 * result + properties.hashCode()
+        return result
     }
 
-    @Override
-    public boolean equals(Object that) {
-        if (this == that) return true;
-        if (that == null || getClass() != that.getClass()) return false;
-//        if (!super.equals(that)) return false;
-
-        Edge thatEdge = (Edge) that;
-
-        return getSource().equals(thatEdge.getSource())
-                && getTarget().equals(thatEdge.getTarget())
-                && getLabels().equals(thatEdge.getLabels());
+    override fun toString(): String {
+        return toString(CyJsonCodec)
     }
 
-    @Override
-    public int hashCode() {
-        int result = super.hashCode();
-        result = 31 * result + getSource().hashCode();
-        result = 31 * result + getTarget().hashCode();
-        result = 31 * result + getLabels().hashCode();
-        return result;
+    fun <GraphType, NodesType, EdgesType, NodeType, EdgeType> toString(encoder: GraphCodec<GraphType, NodesType, EdgesType, NodeType, EdgeType>): String {
+        return encoder.encodeEdge(this).toString()
     }
 }
