@@ -14,8 +14,22 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
     override fun extract(model: CtModel): Graph {
         return Graph(projectName).also { g ->
 
-            // Containers
+            listOf("byte", "char", "short", "int", "long", "float", "double", "boolean", "void")
+                .forEach { prim ->
+                    // Primitives
+                    Node(prim, "Primitive").let { node ->
+                        node["simpleName"] = prim
+                        g.nodes.add(node)
+                    }
+                }
+            // Let's consider String a Primitive
+            Node("java.lang.String", "Structure").let { node ->
+                node["simpleName"] = "String"
+                g.nodes.add(node)
+            }
+
             model.allPackages.filter { !it.isUnnamedPackage }.forEach { pkg ->
+                // Containers
                 Node(pkg.qualifiedName, "Container").let { node ->
                     node["simpleName"] = pkg.simpleName
                     node["kind"] = "package"
@@ -23,16 +37,16 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                 }
             }
 
-            // Container-contains-Container
             model.allPackages.filter { !it.isUnnamedPackage }.forEach { pkg ->
                 val pkgNode = g.nodes.findById(pkg.qualifiedName)!!
                 g.nodes.findById(pkg.declaringPackage.qualifiedName)?.let { declPkgNode ->
+                    // Container-contains-Container
                     g.edges.add(makeEdge(declPkgNode, pkgNode, 1, "contains"))
                 }
             }
 
-            // Structure, Container-contains-Structure
             model.allTypes.forEach { type ->
+                // Structure
                 Node(type.qualifiedName, "Structure").let { node ->
                     node["simpleName"] = type.simpleName
                     node["kind"] = when {
@@ -44,6 +58,7 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                         }
                     }
                     g.nodes.add(node)
+                    // Container-contains-Structure
                     g.nodes.findById(type.`package`.qualifiedName)?.let { pkgNode ->
                         g.edges.add(makeEdge(pkgNode, node, 1, "contains"))
                     }
@@ -51,91 +66,88 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
             }
 
             model.allTypes.forEach { type ->
-                val node = g.nodes.findById(type.qualifiedName)!!
+                g.nodes.findById(type.qualifiedName)?.let { node ->
 
-                // specializes
-                type.ancestors.forEach {
-                    g.nodes.findById(it.qualifiedName)?.let { ancestor ->
-                        g.edges.add(makeEdge(node, ancestor, 1, "specializes"))
+                    type.ancestors.forEach {
+                        g.nodes.findById(it.qualifiedName)?.let { ancestor ->
+                            // specializes
+                            g.edges.add(makeEdge(node, ancestor, 1, "specializes"))
+                        }
                     }
-                }
 
-                // holds
-                listOf(
-                    *type.fields.map { it.type }.toTypedArray(),
-                    *type.fields.flatMap { it.type.actualTypeArguments }.toTypedArray()
-                ).groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                    g.nodes.findById(otherType.qualifiedName)?.let {
-                        g.edges.add(makeEdge(node, it, count, "holds"))
-                    }
-                }
+                    (type.fields.map { it.type } + type.fields.flatMap { it.type.actualTypeArguments })
+                        .groupingBy { it }.eachCount().forEach { (otherType, count) ->
+                            g.nodes.findById(otherType.qualifiedName)?.let {
+                                // holds
+                                g.edges.add(makeEdge(node, it, count, "holds"))
+                            }
+                        }
 
-                // returns
-                listOf(
-                    *type.methods.map { it.type }.toTypedArray(),
-                    *type.methods.flatMap { it.type.actualTypeArguments }.toTypedArray()
-                ).groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                    g.nodes.findById(otherType.qualifiedName)?.let {
-                        g.edges.add(makeEdge(node, it, count, "returns"))
-                    }
-                }
+                    (type.methods.map { it.type } + type.methods.flatMap { it.type.actualTypeArguments })
+                        .groupingBy { it }.eachCount().forEach { (otherType, count) ->
+                            g.nodes.findById(otherType.qualifiedName)?.let {
+                                // returns
+                                g.edges.add(makeEdge(node, it, count, "returns"))
+                            }
+                        }
 
-                // accepts
-                listOf(
-                    *type.methods.flatMap { it.parameters }.map { it.type }.toTypedArray(),
-                    *type.methods.flatMap { it.parameters }.flatMap { it.type.actualTypeArguments }.toTypedArray()
-                ).groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                    g.nodes.findById(otherType.qualifiedName)?.let {
-                        g.edges.add(makeEdge(node, it, count, "accepts"))
-                    }
-                }
+                    (type.methods.flatMap { it.parameters }.map { it.type }
+                            + type.methods.flatMap { it.parameters }.flatMap { it.type.actualTypeArguments })
+                        .groupingBy { it }.eachCount().forEach { (otherType, count) ->
+                            g.nodes.findById(otherType.qualifiedName)?.let {
+                                // accepts
+                                g.edges.add(makeEdge(node, it, count, "accepts"))
+                            }
+                        }
 
-                // accesses
-                val accessedTypes = type.typeMembers
-                    .filter { it is CtBodyHolder }
-                    .map { it as CtBodyHolder }
-                    .flatMap { it.body?.getElements(TypeFilter(CtFieldAccess::class.java))?.toList() ?: listOf() }
-                    .map { it.type }
-                    .toTypedArray()
-                listOf(
-                    *accessedTypes,
-                    *accessedTypes.flatMap { it.actualTypeArguments }.toTypedArray()
-                ).groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                    g.nodes.findById(otherType.qualifiedName)?.let {
-                        g.edges.add(makeEdge(node, it, count, "accesses"))
-                    }
-                }
+                    val accessedTypes = type.typeMembers
+                        .filterIsInstance<CtBodyHolder>()
+                        .flatMap { it.body?.getElements(TypeFilter(CtFieldAccess::class.java))?.toList() ?: listOf() }
+                        .map { it.type }
+                    (accessedTypes + accessedTypes.flatMap { it.actualTypeArguments })
+                        .groupingBy { it }.eachCount().forEach { (otherType, count) ->
+                            g.nodes.findById(otherType.qualifiedName)?.let {
+                                // accesses
+                                g.edges.add(makeEdge(node, it, count, "accesses"))
+                            }
+                        }
 
-                // calls
-                val calledTypes = type.typeMembers
-                    .filter { it is CtBodyHolder }
-                    .map { it as CtBodyHolder }
-                    .flatMap { it.body?.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf() }
-                    .map { it.type }
-                    .toTypedArray()
-                listOf(
-                    *calledTypes,
-                    *calledTypes.flatMap { it.actualTypeArguments }.toTypedArray()
-                ).groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                    g.nodes.findById(otherType.qualifiedName)?.let {
-                        g.edges.add(makeEdge(node, it, count, "calls"))
-                    }
-                }
+                    val calledTypes = type.typeMembers
+                        .filterIsInstance<CtBodyHolder>()
+                        .flatMap { it.body?.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf() }
+                        .map { it.type } +
+                            type.fields
+                                .mapNotNull { it.defaultExpression }
+                                .flatMap { it.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf() }
+                                .map { it.type }
+                                .toTypedArray()
+                    (calledTypes + calledTypes.flatMap { it.actualTypeArguments })
+                        .groupingBy { it }.eachCount().forEach { (otherType, count) ->
+                            g.nodes.findById(otherType.qualifiedName)?.let {
+                                // calls
+                                g.edges.add(makeEdge(node, it, count, "calls"))
+                            }
+                        }
 
-                // constructs
-                val constructedTypes = type.typeMembers
-                    .filter { it is CtBodyHolder }
-                    .map { it as CtBodyHolder }
-                    .flatMap { it.body?.getElements(TypeFilter(CtConstructorCall::class.java))?.toList() ?: listOf() }
-                    .map { it.type }
-                    .toTypedArray()
-                listOf(
-                    *constructedTypes,
-                    *constructedTypes.flatMap { it.actualTypeArguments }.toTypedArray()
-                ).groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                    g.nodes.findById(otherType.qualifiedName)?.let {
-                        g.edges.add(makeEdge(node, it, count, "constructs"))
-                    }
+                    // constructs
+                    val constructedTypes = type.typeMembers
+                        .filterIsInstance<CtBodyHolder>()
+                        .flatMap {
+                            it.body?.getElements(TypeFilter(CtConstructorCall::class.java))?.toList() ?: listOf()
+                        }
+                        .map { it.type } +
+                            type.fields
+                                .mapNotNull { it.defaultExpression }
+                                .flatMap {
+                                    it.getElements(TypeFilter(CtConstructorCall::class.java))?.toList() ?: listOf()
+                                }
+                                .map { it.type }
+                    (constructedTypes + constructedTypes.flatMap { it.actualTypeArguments }.toTypedArray())
+                        .groupingBy { it }.eachCount().forEach { (otherType, count) ->
+                            g.nodes.findById(otherType.qualifiedName)?.let {
+                                g.edges.add(makeEdge(node, it, count, "constructs"))
+                            }
+                        }
                 }
 
             }
