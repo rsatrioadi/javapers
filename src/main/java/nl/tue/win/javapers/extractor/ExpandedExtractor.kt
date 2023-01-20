@@ -4,10 +4,10 @@ import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
 import spoon.reflect.code.CtConstructorCall
+import spoon.reflect.code.CtInvocation
 import spoon.reflect.declaration.CtConstructor
 import spoon.reflect.declaration.CtExecutable
 import spoon.reflect.declaration.CtMethod
-import spoon.reflect.reference.CtArrayTypeReference
 import spoon.reflect.visitor.filter.TypeFilter
 
 class ExpandedExtractor(private val projectName: String) : GraphExtractor {
@@ -15,7 +15,8 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
     override fun extract(model: CtModel): Graph {
         return Graph(projectName).also { g ->
 
-            listOf("byte", "char", "short", "int", "long", "float", "double", "boolean", "void")
+            // let's ignore void
+            listOf("byte", "char", "short", "int", "long", "float", "double", "boolean")
                 .forEach { prim ->
                     // Primitives
                     Node(prim, "Primitive").let { node ->
@@ -98,7 +99,7 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                             is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
                             is CtMethod<*> -> Triple(script.signature, "Operation", "method")
                             else -> {
-                                Triple("script${script.hashCode()}", "Script", "script")
+                                Triple(script.simpleName, "Script", "script")
                             }
                         }
                         // Script
@@ -110,7 +111,8 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                             // hasScript
                             g.edges.add(makeEdge(node, scriptNode, 1, "hasScript"))
 
-                            g.nodes.findById(script.type.qualifiedName)?.let { scriptTypeNode ->
+                            val scriptType = script.typeOrArrayType
+                            g.nodes.findById(scriptType.qualifiedName)?.let { scriptTypeNode ->
                                 // returnType
                                 g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType"))
                             }
@@ -122,7 +124,8 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                                     paramNode["kind"] = "parameter"
                                     g.nodes.add(paramNode)
 
-                                    g.nodes.findById(param.type.qualifiedName)?.let { fieldTypeNode ->
+                                    val paramType = param.typeOrArrayType
+                                    g.nodes.findById(paramType.qualifiedName)?.let { fieldTypeNode ->
                                         // Variable-type-Type
                                         g.edges.add(makeEdge(paramNode, fieldTypeNode, 1, "type"))
                                     }
@@ -134,11 +137,8 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
 
                             val constructedTypes =
                                 (script.getElements(TypeFilter(CtConstructorCall::class.java))?.toList() ?: listOf())
-                                    .map { it.type }
-                            val constructedArrayTypes =
-                                constructedTypes.filter { it.isArray }.map { (it as CtArrayTypeReference).arrayType }
-                            val allConstructedTypes = (constructedTypes + constructedArrayTypes)
-                            (allConstructedTypes + allConstructedTypes.flatMap { it.actualTypeArguments })
+                                    .map { it.typeOrArrayType }
+                            (constructedTypes + constructedTypes.flatMap { it.actualTypeArguments })
                                 .groupingBy { it }.eachCount().forEach { (otherType, count) ->
                                     g.nodes.findById(otherType.qualifiedName)?.let {
                                         // instantiates
@@ -147,6 +147,33 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                                 }
                         }
                     }
+                }
+            }
+
+            model.allTypes.forEach { type ->
+                g.nodes.findById(type.qualifiedName)?.let { node ->
+
+
+                    type.typeMembers.filter { it is CtExecutable<*> }.map { it as CtExecutable<*> }.forEach { script ->
+                        val names = when (script) {
+                            is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
+                            is CtMethod<*> -> Triple(script.signature, "Operation", "method")
+                            else -> {
+                                Triple(script.simpleName, "Script", "script")
+                            }
+                        }
+                        g.nodes.findById("${node.id}.${names.first}")?.let { scriptNode ->
+                            val invokedMethods =
+                                script.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf()
+                            invokedMethods.groupingBy { it.executable }.eachCount().forEach { (method, count) ->
+                                g.nodes.findById("${method.declaringType.qualifiedName}.${method.signature}")?.let {
+                                    // invokes
+                                    g.edges.add(makeEdge(scriptNode, it, count, "invokes"))
+                                }
+                            }
+                        }
+                    }
+
                 }
             }
             println(g)
