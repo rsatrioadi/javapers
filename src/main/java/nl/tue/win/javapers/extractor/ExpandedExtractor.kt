@@ -1,5 +1,6 @@
 package nl.tue.win.javapers.extractor
 
+import nl.tue.win.lib.md5
 import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
@@ -99,7 +100,7 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                             is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
                             is CtMethod<*> -> Triple(script.signature, "Operation", "method")
                             else -> {
-                                Triple(script.simpleName, "Script", "script")
+                                Triple(md5(script.toString()), "Script", "script")
                             }
                         }
                         // Script
@@ -176,7 +177,6 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
 
                 }
             }
-            println(g)
         }
     }
 }

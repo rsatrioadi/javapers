@@ -14,5 +14,6 @@ interface GraphCodec<GraphType, NodesType, EdgesType, NodeType, EdgeType> {
     fun decodeEdges(encodedEdges: EdgesType): Edges
     fun decodeNode(encodedNode: NodeType): Node
     fun decodeEdge(encodedEdge: EdgeType): Edge
+    fun writeToFile(graph: Graph, directory: String, baseName: String)
 }
 

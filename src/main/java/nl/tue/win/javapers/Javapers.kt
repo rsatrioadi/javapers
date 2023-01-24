@@ -7,6 +7,8 @@ import nl.tue.win.lpg.encoder.CsvCodec
 import nl.tue.win.lpg.encoder.CyJsonCodec
 import org.kohsuke.args4j.CmdLineParser
 import spoon.Launcher
+import java.nio.file.Files
+import java.nio.file.Paths
 import kotlin.system.exitProcess
 
 object Javapers {
@@ -15,6 +17,7 @@ object Javapers {
     fun main(args: Array<String>) {
         val parseResult = Options.tryParse(args)
         if (parseResult is Either.Right) {
+            println(parseResult.right.second)
             printInstructions(parseResult.right.first)
             exitProcess(-1)
         }
@@ -24,18 +27,27 @@ object Javapers {
             buildModel()
         }
         val graph =
-            run { if (options.compacted) CompactedExtractor(options.projectName) else ExpandedExtractor(options.projectName) }.extract(
-                model
-            )
+            (if (options.compacted) CompactedExtractor(options.baseName)
+            else ExpandedExtractor(options.baseName))
+                .extract(model)
         val graphCodec = when (options.format) {
             "json" -> CyJsonCodec
             "csv" -> CsvCodec
             else -> {
-                // let's default to CyJson
-                CyJsonCodec
+                // let's default to csv
+                CsvCodec
             }
         }
-        val decoded = graphCodec.encodeGraph(graph)
+        val directory = makeDir(options.outputPath)
+        graphCodec.writeToFile(graph, directory, options.baseName)
+    }
+
+    private fun makeDir(path: String): String {
+        val p = Paths.get(path)
+        if (!Files.isDirectory(p)) {
+            Files.createDirectories(p)
+        }
+        return p.toAbsolutePath().normalize().toString()
     }
 
     private fun printInstructions(parser: CmdLineParser) {

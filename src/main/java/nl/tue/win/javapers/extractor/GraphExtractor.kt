@@ -1,5 +1,6 @@
 package nl.tue.win.javapers.extractor
 
+import nl.tue.win.lib.md5
 import nl.tue.win.lpg.Edge
 import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
@@ -21,8 +22,8 @@ val <T> CtType<T>.ancestors: List<CtTypeReference<*>>
 
 fun makeEdge(source: Node, target: Node, weight: Int = 1, vararg labels: String): Edge {
     val label = labels.joinToString(",")
-    val id = "${source.id}-$label-${target.id}"
-    return Edge(source, target, id, *labels)
+    val id = md5("${source.id}-$label-${target.id}")
+    return Edge(source.id, target.id, id, *labels)
         .also { it["weight"] = weight }
 }
 

@@ -3,6 +3,7 @@ package nl.tue.win.lpg.encoder
 import nl.tue.win.lpg.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JSONObject> {
     override fun encodeGraph(graph: Graph): JSONObject {
@@ -28,24 +29,31 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
 
     override fun encodeNode(node: Node): JSONObject {
         val element = JSONObject()
-        val data = JSONObject()
-        data.put("id", node.id)
-        data.put("labels", node.labels)
-        data.put("properties", JSONObject(node.properties))
+        val data = JSONObject().run {
+            put("id", node.id)
+            put("labels", node.labels)
+            put("properties", JSONObject(node.properties))
+        }
         element.put("data", data)
         return element
     }
 
     override fun encodeEdge(edge: Edge): JSONObject {
         val element = JSONObject()
-        val data = JSONObject()
-        data.put("id", edge.id)
-        data.put("source", edge.source.id)
-        data.put("target", edge.target.id)
-        data.put("labels", edge.labels)
-        data.put("properties", JSONObject(edge.properties))
+        val data = JSONObject().run {
+            put("id", edge.id)
+            put("source", edge.sourceId)
+            put("target", edge.targetId)
+            put("labels", edge.labels)
+            put("properties", JSONObject(edge.properties))
+        }
         element.put("data", data)
         return element
+    }
+
+    override fun writeToFile(graph: Graph, directory: String, baseName: String) {
+        val path = "${if (directory.endsWith(File.separator)) directory else "$directory${File.separator}"}${baseName}.json"
+        File(path).writeText(encodeGraph(graph).toString())
     }
 
     override fun decodeGraph(encodedGraph: JSONObject): Graph {
@@ -79,6 +87,22 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
     }
 
     override fun decodeEdge(encodedEdge: JSONObject): Edge {
-        TODO("Not yet implemented")
+        val data = encodedEdge["data"] as JSONObject
+        val edge = Edge(
+            data["source"] as String,
+            data["target"] as String,
+            data["id"] as String,
+            *(data["labels"] as JSONArray).toSet().map { it.toString() }.toTypedArray()
+        )
+        val properties = data["properties"] as JSONObject
+        properties.keys().forEach {
+            val prop = properties[it]
+            if (prop is JSONArray) {
+                edge[it] = prop.toList()
+            } else {
+                edge[it] = properties[it]
+            }
+        }
+        return edge
     }
 }

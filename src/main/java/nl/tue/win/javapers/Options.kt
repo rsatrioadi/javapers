@@ -12,13 +12,13 @@ class Options {
     @Option(name = "-o", aliases = ["--output"], usage = "Output directory", metaVar = "OUTFILE")
     var outputPath = "."
 
-    @Option(name = "-f", aliases = ["--format"], usage = "Output format: json, xml, or csv", metaVar = "FORMAT")
-    var format = "json"
+    @Option(name = "-f", aliases = ["--format"], usage = "Output format: json or csv", metaVar = "FORMAT")
+    var format = "csv"
 
-    @Option(name = "-p", aliases = ["--project-name"], usage = "Project name", metaVar = "PROJECT_NAME")
-    var projectName = "JavaProject"
+    @Option(name = "-n", aliases = ["--name"], usage = "Base file name", metaVar = "BASE_NAME")
+    var baseName = "JavaProject"
 
-    @Option(name = "-c", aliases = ["--compacted"], usage = "Generate compacted graph")
+    @Option(name = "-c", aliases = ["--abstract"], usage = "Generate higher-level knowledge graph")
     var compacted = false
 
     companion object {

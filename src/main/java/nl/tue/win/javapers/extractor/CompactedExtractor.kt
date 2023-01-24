@@ -7,6 +7,7 @@ import spoon.reflect.code.CtBodyHolder
 import spoon.reflect.code.CtConstructorCall
 import spoon.reflect.code.CtFieldAccess
 import spoon.reflect.code.CtInvocation
+import spoon.reflect.code.CtTypeAccess
 import spoon.reflect.reference.CtArrayTypeReference
 import spoon.reflect.visitor.filter.TypeFilter
 
@@ -107,7 +108,15 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                     val accessedTypes = type.typeMembers
                         .filterIsInstance<CtBodyHolder>()
                         .flatMap { it.body?.getElements(TypeFilter(CtFieldAccess::class.java))?.toList() ?: listOf() }
-                        .map { it.typeOrArrayType }
+                        .mapNotNull { it.target }
+                        .map { if (it is CtTypeAccess<*>) (it as CtTypeAccess<*>).accessedType else it.type } +
+                            type.fields
+                                .mapNotNull { it.defaultExpression }
+                                .flatMap {
+                                    it.getElements(TypeFilter(CtFieldAccess::class.java))?.toList() ?: listOf()
+                                }
+                                .mapNotNull { it.target }
+                                .map { if (it is CtTypeAccess<*>) it.accessedType else it.type }
                     (accessedTypes + accessedTypes.flatMap { it.actualTypeArguments })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
                             g.nodes.findById(otherType.qualifiedName)?.let {
@@ -119,11 +128,13 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                     val calledTypes = type.typeMembers
                         .filterIsInstance<CtBodyHolder>()
                         .flatMap { it.body?.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf() }
-                        .map { it.typeOrArrayType } +
+                        .mapNotNull { it.target }
+                        .map { if (it is CtTypeAccess<*>) it.accessedType else it.type } +
                             type.fields
                                 .mapNotNull { it.defaultExpression }
                                 .flatMap { it.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf() }
-                                .map { it.typeOrArrayType }
+                                .mapNotNull { it.target }
+                                .map { if (it is CtTypeAccess<*>) it.accessedType else it.type }
                                 .toTypedArray()
                     (calledTypes + calledTypes.flatMap { it.actualTypeArguments })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
@@ -139,7 +150,7 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                         .flatMap {
                             it.body?.getElements(TypeFilter(CtConstructorCall::class.java))?.toList() ?: listOf()
                         }
-                        .map { it.typeOrArrayType } +
+                        .mapNotNull { it.typeOrArrayType } +
                             type.fields
                                 .mapNotNull { it.defaultExpression }
                                 .flatMap {
@@ -155,7 +166,6 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                 }
 
             }
-            println(g)
         }
     }
 }
