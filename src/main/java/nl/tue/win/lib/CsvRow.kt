@@ -5,7 +5,6 @@ import java.text.DecimalFormat
 
 class CsvRow : HashMap<String, Any?>() {
     val preferredColumnOrder: MutableList<String> = mutableListOf()
-        get() = field
 
     fun setPreferredColumnOrder(vararg columns: String) {
         preferredColumnOrder.clear()

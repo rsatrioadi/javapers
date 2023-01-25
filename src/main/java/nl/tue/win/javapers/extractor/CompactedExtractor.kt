@@ -3,12 +3,7 @@ package nl.tue.win.javapers.extractor
 import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
-import spoon.reflect.code.CtBodyHolder
-import spoon.reflect.code.CtConstructorCall
-import spoon.reflect.code.CtFieldAccess
-import spoon.reflect.code.CtInvocation
-import spoon.reflect.code.CtTypeAccess
-import spoon.reflect.reference.CtArrayTypeReference
+import spoon.reflect.code.*
 import spoon.reflect.visitor.filter.TypeFilter
 
 class CompactedExtractor(private val projectName: String) : GraphExtractor {
@@ -108,39 +103,51 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                     val accessedTypes = type.typeMembers
                         .filterIsInstance<CtBodyHolder>()
                         .flatMap { it.body?.getElements(TypeFilter(CtFieldAccess::class.java))?.toList() ?: listOf() }
+                        .asSequence()
                         .mapNotNull { it.target }
-                        .map { if (it is CtTypeAccess<*>) (it as CtTypeAccess<*>).accessedType else it.type } +
+                        .map { if (it is CtTypeAccess<*>) it.accessedType else it.type }
+                        .toList() +
                             type.fields
                                 .mapNotNull { it.defaultExpression }
                                 .flatMap {
                                     it.getElements(TypeFilter(CtFieldAccess::class.java))?.toList() ?: listOf()
                                 }
+                                .asSequence()
                                 .mapNotNull { it.target }
                                 .map { if (it is CtTypeAccess<*>) it.accessedType else it.type }
+                                .toList()
                     (accessedTypes + accessedTypes.flatMap { it.actualTypeArguments })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
                             g.nodes.findById(otherType.qualifiedName)?.let {
-                                // accesses
-                                g.edges.add(makeEdge(node, it, count, "accesses"))
+                                if (node.id != it.id) {
+                                    // accesses
+                                    g.edges.add(makeEdge(node, it, count, "accesses"))
+                                }
                             }
                         }
 
                     val calledTypes = type.typeMembers
                         .filterIsInstance<CtBodyHolder>()
                         .flatMap { it.body?.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf() }
+                        .asSequence()
                         .mapNotNull { it.target }
-                        .map { if (it is CtTypeAccess<*>) it.accessedType else it.type } +
+                        .map { if (it is CtTypeAccess<*>) it.accessedType else it.type }
+                        .toList() +
                             type.fields
                                 .mapNotNull { it.defaultExpression }
                                 .flatMap { it.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf() }
+                                .asSequence()
                                 .mapNotNull { it.target }
                                 .map { if (it is CtTypeAccess<*>) it.accessedType else it.type }
+                                .toList()
                                 .toTypedArray()
                     (calledTypes + calledTypes.flatMap { it.actualTypeArguments })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
                             g.nodes.findById(otherType.qualifiedName)?.let {
-                                // calls
-                                g.edges.add(makeEdge(node, it, count, "calls"))
+                                if (node.id != it.id) {
+                                    // calls
+                                    g.edges.add(makeEdge(node, it, count, "calls"))
+                                }
                             }
                         }
 

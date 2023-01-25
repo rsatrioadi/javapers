@@ -7,10 +7,10 @@ import java.io.File
 
 object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JSONObject> {
     override fun encodeGraph(graph: Graph): JSONObject {
-        val obj = JSONObject()
         val elements = JSONObject()
         elements.put("nodes", this.encodeNodes(graph.nodes))
         elements.put("edges", this.encodeEdges(graph.edges))
+        val obj = JSONObject()
         obj.put("elements", elements)
         return obj
     }
@@ -28,18 +28,17 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
     }
 
     override fun encodeNode(node: Node): JSONObject {
-        val element = JSONObject()
         val data = JSONObject().run {
             put("id", node.id)
             put("labels", node.labels)
             put("properties", JSONObject(node.properties))
         }
+        val element = JSONObject()
         element.put("data", data)
         return element
     }
 
     override fun encodeEdge(edge: Edge): JSONObject {
-        val element = JSONObject()
         val data = JSONObject().run {
             put("id", edge.id)
             put("source", edge.sourceId)
@@ -47,12 +46,14 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
             put("labels", edge.labels)
             put("properties", JSONObject(edge.properties))
         }
+        val element = JSONObject()
         element.put("data", data)
         return element
     }
 
     override fun writeToFile(graph: Graph, directory: String, baseName: String) {
-        val path = "${if (directory.endsWith(File.separator)) directory else "$directory${File.separator}"}${baseName}.json"
+        val path =
+            "${if (directory.endsWith(File.separator)) directory else "$directory${File.separator}"}${baseName}.json"
         File(path).writeText(encodeGraph(graph).toString())
     }
 
@@ -72,16 +73,14 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
         val data = encodedNode["data"] as JSONObject
         val node = Node(
             data["id"] as String,
-            *(data["labels"] as JSONArray).toSet().map { it.toString() }.toTypedArray()
+            *(data["labels"] as JSONArray).toSet()
+                .map { it.toString() }
+                .toTypedArray()
         )
         val properties = data["properties"] as JSONObject
         properties.keys().forEach {
             val prop = properties[it]
-            if (prop is JSONArray) {
-                node[it] = prop.toList()
-            } else {
-                node[it] = properties[it]
-            }
+            node[it] = if (prop is JSONArray) prop.toList() else properties[it]
         }
         return node
     }
@@ -92,16 +91,14 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
             data["source"] as String,
             data["target"] as String,
             data["id"] as String,
-            *(data["labels"] as JSONArray).toSet().map { it.toString() }.toTypedArray()
+            *(data["labels"] as JSONArray).toSet()
+                .map { it.toString() }
+                .toTypedArray()
         )
         val properties = data["properties"] as JSONObject
         properties.keys().forEach {
             val prop = properties[it]
-            if (prop is JSONArray) {
-                edge[it] = prop.toList()
-            } else {
-                edge[it] = properties[it]
-            }
+            edge[it] = if (prop is JSONArray) prop.toList() else properties[it]
         }
         return edge
     }

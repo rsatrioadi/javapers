@@ -28,4 +28,4 @@ fun makeEdge(source: Node, target: Node, weight: Int = 1, vararg labels: String)
 }
 
 val CtTypedElement<*>.typeOrArrayType: CtTypeReference<*>
-get() = if (this.type.isArray) (this.type as CtArrayTypeReference).arrayType else this.type
+    get() = if (this.type.isArray) (this.type as CtArrayTypeReference).arrayType else this.type

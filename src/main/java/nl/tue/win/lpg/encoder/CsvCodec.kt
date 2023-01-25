@@ -13,7 +13,7 @@ object CsvCodec : GraphCodec<CsvRowsList, CsvRows, CsvRows, CsvRow, CsvRow> {
     override fun encodeNodes(nodes: Nodes): CsvRows {
         val nodeRows = CsvRows().also {
             nodes.asList().forEach { node -> it.add(encodeNode(node)) }
-            it.setPreferredColumnOrder("id","labels")
+            it.setPreferredColumnOrder("id", "labels")
         }
         return nodeRows
     }
@@ -21,37 +21,39 @@ object CsvCodec : GraphCodec<CsvRowsList, CsvRows, CsvRows, CsvRow, CsvRow> {
     override fun encodeEdges(edges: Edges): CsvRows {
         val edgeRows = CsvRows().also {
             edges.asList().forEach { edge -> it.add(encodeEdge(edge)) }
-            it.setPreferredColumnOrder("id","source","target","labels")
+            it.setPreferredColumnOrder("id", "source", "target", "labels")
         }
         return edgeRows
     }
 
     override fun encodeNode(node: Node): CsvRow {
-        val element = CsvRow().also {
+        val row = CsvRow().also {
             it["id"] = node.id
             it["labels"] = node.labels.joinToString(",")
             node.properties.keys.forEach { key -> it[key] = node.properties[key] }
-            it.setPreferredColumnOrder("id","labels")
+            it.setPreferredColumnOrder("id", "labels")
         }
-        return element
+        return row
     }
 
     override fun encodeEdge(edge: Edge): CsvRow {
-        val element = CsvRow().also {
+        val row = CsvRow().also {
             it["id"] = edge.id
             it["source"] = edge.sourceId
             it["target"] = edge.targetId
             it["labels"] = edge.labels.joinToString(",")
             edge.properties.keys.forEach { key -> it[key] = edge.properties[key] }
-            it.setPreferredColumnOrder("id","source","target","labels")
+            it.setPreferredColumnOrder("id", "source", "target", "labels")
         }
-        return element
+        return row
     }
 
     override fun writeToFile(graph: Graph, directory: String, baseName: String) {
-        val nodesPath = "${if (directory.endsWith(File.separator)) directory else "$directory${File.separator}"}${baseName}-nodes.csv"
+        val nodesPath =
+            "${if (directory.endsWith(File.separator)) directory else "$directory${File.separator}"}${baseName}-nodes.csv"
         File(nodesPath).writeText(encodeNodes(graph.nodes).toString())
-        val edgesPath = "${if (directory.endsWith(File.separator)) directory else "$directory${File.separator}"}${baseName}-edges.csv"
+        val edgesPath =
+            "${if (directory.endsWith(File.separator)) directory else "$directory${File.separator}"}${baseName}-edges.csv"
         File(edgesPath).writeText(encodeEdges(graph.edges).toString())
     }
 
