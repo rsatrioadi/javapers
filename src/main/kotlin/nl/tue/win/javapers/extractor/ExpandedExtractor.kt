@@ -139,11 +139,13 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                             val constructedTypes =
                                 (script.getElements(TypeFilter(CtConstructorCall::class.java))?.toList() ?: listOf())
                                     .map { it.typeOrArrayType }
-                            (constructedTypes + constructedTypes.flatMap { it.actualTypeArguments })
+                            (constructedTypes + constructedTypes.flatMap { it?.actualTypeArguments ?: listOf() })
                                 .groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                                    g.nodes.findById(otherType.qualifiedName)?.let {
-                                        // instantiates
-                                        g.edges.add(makeEdge(scriptNode, it, count, "instantiates"))
+                                    otherType?.also {
+                                        g.nodes.findById(it.qualifiedName)?.let {
+                                            // instantiates
+                                            g.edges.add(makeEdge(scriptNode, it, count, "instantiates"))
+                                        }
                                     }
                                 }
                         }
@@ -167,7 +169,7 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                             val invokedMethods =
                                 script.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf()
                             invokedMethods.groupingBy { it.executable }.eachCount().forEach { (method, count) ->
-                                g.nodes.findById("${method.declaringType.qualifiedName}.${method.signature}")?.let {
+                                g.nodes.findById("${method.declaringType?.qualifiedName}.${method.signature}")?.let {
                                     // invokes
                                     g.edges.add(makeEdge(scriptNode, it, count, "invokes"))
                                 }

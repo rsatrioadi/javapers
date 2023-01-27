@@ -74,29 +74,35 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                     }
 
                     val fieldTypes = type.fields.map { it.typeOrArrayType }
-                    (fieldTypes + fieldTypes.flatMap { it.actualTypeArguments })
+                    (fieldTypes + fieldTypes.flatMap { it?.actualTypeArguments ?: listOf() })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                            g.nodes.findById(otherType.qualifiedName)?.let {
-                                // holds
-                                g.edges.add(makeEdge(node, it, count, "holds"))
+                            otherType?.also {
+                                g.nodes.findById(it.qualifiedName)?.let {
+                                    // holds
+                                    g.edges.add(makeEdge(node, it, count, "holds"))
+                                }
                             }
                         }
 
                     val methodTypes = type.methods.map { it.typeOrArrayType }
-                    (methodTypes + methodTypes.flatMap { it.actualTypeArguments })
+                    (methodTypes + methodTypes.flatMap { it?.actualTypeArguments ?: listOf() })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                            g.nodes.findById(otherType.qualifiedName)?.let {
-                                // returns
-                                g.edges.add(makeEdge(node, it, count, "returns"))
+                            otherType?.also {
+                                g.nodes.findById(it.qualifiedName)?.let {
+                                    // returns
+                                    g.edges.add(makeEdge(node, it, count, "returns"))
+                                }
                             }
                         }
 
                     val paramTypes = type.methods.flatMap { it.parameters }.map { it.typeOrArrayType }
-                    (paramTypes + paramTypes.flatMap { it.actualTypeArguments })
+                    (paramTypes + paramTypes.flatMap { it?.actualTypeArguments ?: listOf() })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                            g.nodes.findById(otherType.qualifiedName)?.let {
-                                // accepts
-                                g.edges.add(makeEdge(node, it, count, "accepts"))
+                            otherType?.also {
+                                g.nodes.findById(it.qualifiedName)?.let {
+                                    // accepts
+                                    g.edges.add(makeEdge(node, it, count, "accepts"))
+                                }
                             }
                         }
 
@@ -116,12 +122,14 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                                 .mapNotNull { it.target }
                                 .map { if (it is CtTypeAccess<*>) it.accessedType else it.type }
                                 .toList()
-                    (accessedTypes + accessedTypes.flatMap { it.actualTypeArguments })
+                    (accessedTypes + accessedTypes.flatMap { it?.actualTypeArguments ?: listOf() })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                            g.nodes.findById(otherType.qualifiedName)?.let {
-                                if (node.id != it.id) {
-                                    // accesses
-                                    g.edges.add(makeEdge(node, it, count, "accesses"))
+                            otherType?.also {
+                                g.nodes.findById(it.qualifiedName)?.let {
+                                    if (node.id != it.id) {
+                                        // accesses
+                                        g.edges.add(makeEdge(node, it, count, "accesses"))
+                                    }
                                 }
                             }
                         }
@@ -141,12 +149,14 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                                 .map { if (it is CtTypeAccess<*>) it.accessedType else it.type }
                                 .toList()
                                 .toTypedArray()
-                    (calledTypes + calledTypes.flatMap { it.actualTypeArguments })
+                    (calledTypes + calledTypes.flatMap { it?.actualTypeArguments ?: listOf() })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                            g.nodes.findById(otherType.qualifiedName)?.let {
-                                if (node.id != it.id) {
-                                    // calls
-                                    g.edges.add(makeEdge(node, it, count, "calls"))
+                            otherType?.also {
+                                g.nodes.findById(it.qualifiedName)?.let {
+                                    if (node.id != it.id) {
+                                        // calls
+                                        g.edges.add(makeEdge(node, it, count, "calls"))
+                                    }
                                 }
                             }
                         }
@@ -164,10 +174,12 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                                     it.getElements(TypeFilter(CtConstructorCall::class.java))?.toList() ?: listOf()
                                 }
                                 .map { it.typeOrArrayType }
-                    (constructedTypes + constructedTypes.flatMap { it.actualTypeArguments })
+                    (constructedTypes + constructedTypes.flatMap { it?.actualTypeArguments ?: listOf() })
                         .groupingBy { it }.eachCount().forEach { (otherType, count) ->
-                            g.nodes.findById(otherType.qualifiedName)?.let {
-                                g.edges.add(makeEdge(node, it, count, "constructs"))
+                            otherType?.also {
+                                g.nodes.findById(it.qualifiedName)?.let {
+                                    g.edges.add(makeEdge(node, it, count, "constructs"))
+                                }
                             }
                         }
                 }
