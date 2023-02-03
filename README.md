@@ -37,3 +37,18 @@ Check out [classviz](https://github.com/rsatrioadi/classviz), a project that use
 You can play around with the JHotDraw example [here](https://rsatrioadi.github.io/classviz/?p=jhotdraw_abstract).
 
 You can visualize the detailed graph as well using classviz ([example](https://rsatrioadi.github.io/classviz/?p=strategy_detailed)). However, the interaction tools does not currently support the node and edge types of the detailed graph type.
+
+## Citing
+
+```bibtex
+@software{rukmono2023javapers,
+  author       = {Satrio Adi Rukmono},
+  title        = {rsatrioadi/javapers: javapers 1.0},
+  month        = jan,
+  year         = 2023,
+  publisher    = {Zenodo},
+  version      = {v1.0},
+  doi          = {10.5281/zenodo.7568438},
+  url          = {https://doi.org/10.5281/zenodo.7568438}
+}
+```
