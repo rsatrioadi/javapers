@@ -3,8 +3,8 @@ package nl.tue.win.javapers
 import nl.tue.win.javapers.extractor.CompactedExtractor
 import nl.tue.win.javapers.extractor.ExpandedExtractor
 import nl.tue.win.lib.Either
+import nl.tue.win.lpg.encoder.Codecs
 import nl.tue.win.lpg.encoder.CsvCodec
-import nl.tue.win.lpg.encoder.CyJsonCodec
 import org.kohsuke.args4j.CmdLineParser
 import spoon.Launcher
 import java.nio.file.Files
@@ -30,14 +30,8 @@ open class Javapers {
                 (if (options.compacted) CompactedExtractor(options.baseName)
                 else ExpandedExtractor(options.baseName))
                     .extract(model)
-            val graphCodec = when (options.format) {
-                "json" -> CyJsonCodec
-                "csv" -> CsvCodec
-                else -> {
-                    // let's default to csv
-                    CsvCodec
-                }
-            }
+            val graphCodec = Codecs[options.format] ?: CsvCodec
+            println(graphCodec.javaClass)
             val directory = makeDir(options.outputPath)
             graphCodec.writeToFile(graph, directory, options.baseName)
         }

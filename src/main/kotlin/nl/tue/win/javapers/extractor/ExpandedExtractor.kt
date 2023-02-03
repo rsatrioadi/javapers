@@ -112,10 +112,11 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                             // hasScript
                             g.edges.add(makeEdge(node, scriptNode, 1, "hasScript"))
 
-                            val scriptType = script.typeOrArrayType
-                            g.nodes.findById(scriptType.qualifiedName)?.let { scriptTypeNode ->
-                                // returnType
-                                g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType"))
+                            script.typeOrArrayType?.also { scriptType ->
+                                g.nodes.findById(scriptType.qualifiedName)?.let { scriptTypeNode ->
+                                    // returnType
+                                    g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType"))
+                                }
                             }
 
                             script.parameters.forEach { param ->
@@ -125,10 +126,11 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                                     paramNode["kind"] = "parameter"
                                     g.nodes.add(paramNode)
 
-                                    val paramType = param.typeOrArrayType
-                                    g.nodes.findById(paramType.qualifiedName)?.let { fieldTypeNode ->
-                                        // Variable-type-Type
-                                        g.edges.add(makeEdge(paramNode, fieldTypeNode, 1, "type"))
+                                    param.typeOrArrayType?.also { paramType ->
+                                        g.nodes.findById(paramType.qualifiedName)?.let { fieldTypeNode ->
+                                            // Variable-type-Type
+                                            g.edges.add(makeEdge(paramNode, fieldTypeNode, 1, "type"))
+                                        }
                                     }
 
                                     // hasParameter

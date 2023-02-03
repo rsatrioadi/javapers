@@ -27,5 +27,5 @@ fun makeEdge(source: Node, target: Node, weight: Int = 1, vararg labels: String)
         .also { it["weight"] = weight }
 }
 
-val CtTypedElement<*>.typeOrArrayType: CtTypeReference<*>
+val CtTypedElement<*>.typeOrArrayType: CtTypeReference<*>?
     get() = if (this.type.isArray) (this.type as CtArrayTypeReference).arrayType else this.type

@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+    <graph edgedefault="directed" id="strategy_abstract">
+        <node id="refactoring_guru.strategy.example.order" labels=":Container">
+            <data key="labels">:Container</data>
+            <data key="simpleName">order</data>
+            <data key="kind">package</data>
+        </node>
+        <node id="double" labels=":Primitive">
+            <data key="labels">:Primitive</data>
+            <data key="simpleName">double</data>
+        </node>
+        <node id="short" labels=":Primitive">
+            <data key="labels">:Primitive</data>
+            <data key="simpleName">short</data>
+        </node>
+        <node id="boolean" labels=":Primitive">
+            <data key="labels">:Primitive</data>
+            <data key="simpleName">boolean</data>
+        </node>
+        <node id="refactoring_guru.strategy" labels=":Container">
+            <data key="labels">:Container</data>
+            <data key="simpleName">strategy</data>
+            <data key="kind">package</data>
+        </node>
+        <node id="byte" labels=":Primitive">
+            <data key="labels">:Primitive</data>
+            <data key="simpleName">byte</data>
+        </node>
+        <node id="java.lang.String" labels=":Structure">
+            <data key="labels">:Structure</data>
+            <data key="simpleName">String</data>
+        </node>
+        <node id="refactoring_guru.strategy.example.Demo" labels=":Structure">
+            <data key="labels">:Structure</data>
+            <data key="simpleName">Demo</data>
+            <data key="kind">class</data>
+        </node>
+        <node id="refactoring_guru.strategy.example.strategies.CreditCard" labels=":Structure">
+            <data key="labels">:Structure</data>
+            <data key="simpleName">CreditCard</data>
+            <data key="kind">class</data>
+        </node>
+        <node id="refactoring_guru.strategy.example.order.Order" labels=":Structure">
+            <data key="labels">:Structure</data>
+            <data key="simpleName">Order</data>
+            <data key="kind">class</data>
+        </node>
+        <node id="refactoring_guru.strategy.example.strategies.PayByCreditCard" labels=":Structure">
+            <data key="labels">:Structure</data>
+            <data key="simpleName">PayByCreditCard</data>
+            <data key="kind">class</data>
+        </node>
+        <node id="float" labels=":Primitive">
+            <data key="labels">:Primitive</data>
+            <data key="simpleName">float</data>
+        </node>
+        <node id="int" labels=":Primitive">
+            <data key="labels">:Primitive</data>
+            <data key="simpleName">int</data>
+        </node>
+        <node id="refactoring_guru.strategy.example" labels=":Container">
+            <data key="labels">:Container</data>
+            <data key="simpleName">example</data>
+            <data key="kind">package</data>
+        </node>
+        <node id="refactoring_guru.strategy.example.strategies.PayStrategy" labels=":Structure">
+            <data key="labels">:Structure</data>
+            <data key="simpleName">PayStrategy</data>
+            <data key="kind">interface</data>
+        </node>
+        <node id="long" labels=":Primitive">
+            <data key="labels">:Primitive</data>
+            <data key="simpleName">long</data>
+        </node>
+        <node id="refactoring_guru" labels=":Container">
+            <data key="labels">:Container</data>
+            <data key="simpleName">refactoring_guru</data>
+            <data key="kind">package</data>
+        </node>
+        <node id="char" labels=":Primitive">
+            <data key="labels">:Primitive</data>
+            <data key="simpleName">char</data>
+        </node>
+        <node id="refactoring_guru.strategy.example.strategies" labels=":Container">
+            <data key="labels">:Container</data>
+            <data key="simpleName">strategies</data>
+            <data key="kind">package</data>
+        </node>
+        <node id="refactoring_guru.strategy.example.strategies.PayByPayPal" labels=":Structure">
+            <data key="labels">:Structure</data>
+            <data key="simpleName">PayByPayPal</data>
+            <data key="kind">class</data>
+        </node>
+        <edge id="4abd1078b92a2d849574aeb4f063867b" labels="calls" source="refactoring_guru.strategy.example.Demo"
+              target="refactoring_guru.strategy.example.order.Order">
+            <data key="labels">calls</data>
+            <data key="weight">6</data>
+        </edge>
+        <edge id="ed01159880cda58e8ebda1ef352576cc" labels="contains"
+              source="refactoring_guru.strategy.example.strategies"
+              target="refactoring_guru.strategy.example.strategies.PayByPayPal">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="fe31d300e8287ec252178b29212c41a8" labels="calls" source="refactoring_guru.strategy.example.Demo"
+              target="refactoring_guru.strategy.example.strategies.PayStrategy">
+            <data key="labels">calls</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="8cc1a8a68f5415e14fb8c2a8a298947d" labels="holds"
+              source="refactoring_guru.strategy.example.strategies.PayByCreditCard"
+              target="refactoring_guru.strategy.example.strategies.CreditCard">
+            <data key="labels">holds</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="d054bbcda74ef19925380fa6d4d846f7" labels="contains"
+              source="refactoring_guru.strategy.example.strategies"
+              target="refactoring_guru.strategy.example.strategies.CreditCard">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="3dc3e8c93f2025b0a66765fcd06c0dda" labels="contains" source="refactoring_guru.strategy"
+              target="refactoring_guru.strategy.example">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="bf19b0af7be42b026479dc05ed4c0c4f" labels="calls" source="refactoring_guru.strategy.example.Demo"
+              target="java.lang.String">
+            <data key="labels">calls</data>
+            <data key="weight">3</data>
+        </edge>
+        <edge id="455407b464d815a1534de1866f2e6ff9" labels="returns"
+              source="refactoring_guru.strategy.example.order.Order" target="boolean">
+            <data key="labels">returns</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="82ef48405b4d74c6e3107f3299db7ea2" labels="returns"
+              source="refactoring_guru.strategy.example.order.Order" target="int">
+            <data key="labels">returns</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="e2328a0f6f3f7770fcd542301b2f7c7e" labels="holds"
+              source="refactoring_guru.strategy.example.order.Order" target="boolean">
+            <data key="labels">holds</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="2c1a2f9af7a26b3b5ed9c606a2e65229" labels="holds"
+              source="refactoring_guru.strategy.example.strategies.PayByPayPal" target="java.lang.String">
+            <data key="labels">holds</data>
+            <data key="weight">4</data>
+        </edge>
+        <edge id="002158e729fd5e5cf6da06ddf7fff0df" labels="accepts"
+              source="refactoring_guru.strategy.example.order.Order" target="int">
+            <data key="labels">accepts</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="5fa83d591bcf40c4a5339fda4218e633" labels="holds"
+              source="refactoring_guru.strategy.example.strategies.CreditCard" target="java.lang.String">
+            <data key="labels">holds</data>
+            <data key="weight">3</data>
+        </edge>
+        <edge id="a352ef00b217312da471429ee8104c40" labels="contains" source="refactoring_guru.strategy.example.order"
+              target="refactoring_guru.strategy.example.order.Order">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="cb53d800a4f4b2938af81740077872fe" labels="constructs" source="refactoring_guru.strategy.example.Demo"
+              target="refactoring_guru.strategy.example.strategies.PayByPayPal">
+            <data key="labels">constructs</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="3f45a15b4bd5f31eb9b8133818fc07ca" labels="holds" source="refactoring_guru.strategy.example.Demo"
+              target="refactoring_guru.strategy.example.order.Order">
+            <data key="labels">holds</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="1ac1a6b21a4bf2dcd0e19ed4610fb192" labels="accepts"
+              source="refactoring_guru.strategy.example.strategies.PayStrategy" target="int">
+            <data key="labels">accepts</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="50b3fede2244b5ad4588c96e3ad0f675" labels="contains" source="refactoring_guru.strategy.example"
+              target="refactoring_guru.strategy.example.order">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="dd524962e0f2d46982f24d341c33792c" labels="returns"
+              source="refactoring_guru.strategy.example.strategies.PayStrategy" target="boolean">
+            <data key="labels">returns</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="f3baab4b15005906884d431cb3e8519a" labels="holds"
+              source="refactoring_guru.strategy.example.order.Order" target="int">
+            <data key="labels">holds</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="aff22a991451c5700cd6dc64a84627d8" labels="constructs" source="refactoring_guru.strategy.example.Demo"
+              target="refactoring_guru.strategy.example.strategies.PayByCreditCard">
+            <data key="labels">constructs</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="b35013f5fcb101784441ff3eb9ca4b68" labels="calls"
+              source="refactoring_guru.strategy.example.order.Order"
+              target="refactoring_guru.strategy.example.strategies.PayStrategy">
+            <data key="labels">calls</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="dcdff85de97a7ef5d5d47dd8b56f2006" labels="accepts"
+              source="refactoring_guru.strategy.example.strategies.CreditCard" target="int">
+            <data key="labels">accepts</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="5938c7deff5c708848c1c3ac0e976aa5" labels="constructs"
+              source="refactoring_guru.strategy.example.strategies.PayByCreditCard"
+              target="refactoring_guru.strategy.example.strategies.CreditCard">
+            <data key="labels">constructs</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="e1f034c49cb837fd8532a7a45a683671" labels="accepts"
+              source="refactoring_guru.strategy.example.strategies.PayByPayPal" target="boolean">
+            <data key="labels">accepts</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="5880a3ecce059e43c886e7f0ea93d608" labels="holds"
+              source="refactoring_guru.strategy.example.strategies.PayByPayPal" target="boolean">
+            <data key="labels">holds</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="9fa44bb47c6d7cab74cf032932cd24c5" labels="accepts"
+              source="refactoring_guru.strategy.example.order.Order"
+              target="refactoring_guru.strategy.example.strategies.PayStrategy">
+            <data key="labels">accepts</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="990fe1c59afe90cd0af309dc16bf6606" labels="contains"
+              source="refactoring_guru.strategy.example.strategies"
+              target="refactoring_guru.strategy.example.strategies.PayByCreditCard">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="67cb787e7c359f428100d366f17a9d8b" labels="specializes"
+              source="refactoring_guru.strategy.example.strategies.PayByCreditCard"
+              target="refactoring_guru.strategy.example.strategies.PayStrategy">
+            <data key="labels">specializes</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="fd3a1dd1820ac0f57304967d9f6b2b40" labels="constructs" source="refactoring_guru.strategy.example.Demo"
+              target="refactoring_guru.strategy.example.order.Order">
+            <data key="labels">constructs</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="51949fa16b26466b210a2e74668d0407" labels="returns"
+              source="refactoring_guru.strategy.example.strategies.PayByPayPal" target="boolean">
+            <data key="labels">returns</data>
+            <data key="weight">2</data>
+        </edge>
+        <edge id="05e95ace9e7110a2169164f8ac143195" labels="holds" source="refactoring_guru.strategy.example.Demo"
+              target="refactoring_guru.strategy.example.strategies.PayStrategy">
+            <data key="labels">holds</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="be864ca9e4003b08239b5242f358ba69" labels="returns"
+              source="refactoring_guru.strategy.example.strategies.CreditCard" target="int">
+            <data key="labels">returns</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="e1f9d662c6b05bbb11fb9cca8929a698" labels="contains" source="refactoring_guru.strategy.example"
+              target="refactoring_guru.strategy.example.Demo">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="c18a124ae10c45bd3aeba62d4bc7c4db" labels="accepts"
+              source="refactoring_guru.strategy.example.strategies.PayByPayPal" target="int">
+            <data key="labels">accepts</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="ee9ef45a3fc90435bd83912c57c39fff" labels="holds"
+              source="refactoring_guru.strategy.example.strategies.CreditCard" target="int">
+            <data key="labels">holds</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="df5fa3d799f2cb21db31d7e1cc48ff55" labels="calls"
+              source="refactoring_guru.strategy.example.strategies.PayByCreditCard"
+              target="refactoring_guru.strategy.example.strategies.CreditCard">
+            <data key="labels">calls</data>
+            <data key="weight">2</data>
+        </edge>
+        <edge id="6a2909cb54bf7cb6489987ff0e77a4ed" labels="constructs"
+              source="refactoring_guru.strategy.example.strategies.PayByPayPal" target="java.lang.String">
+            <data key="labels">constructs</data>
+            <data key="weight">2</data>
+        </edge>
+        <edge id="3b7fe859fcadea1bc4c548af5b4074e4" labels="contains" source="refactoring_guru.strategy.example"
+              target="refactoring_guru.strategy.example.strategies">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="3e4d92ebafd7077e4daafd0abfc88429" labels="contains"
+              source="refactoring_guru.strategy.example.strategies"
+              target="refactoring_guru.strategy.example.strategies.PayStrategy">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="93c079ee7978c9cf022c76f822dbb660" labels="returns"
+              source="refactoring_guru.strategy.example.strategies.PayByCreditCard" target="boolean">
+            <data key="labels">returns</data>
+            <data key="weight">2</data>
+        </edge>
+        <edge id="3b2ca0af2389b2a408542c1edf61985b" labels="contains" source="refactoring_guru"
+              target="refactoring_guru.strategy">
+            <data key="labels">contains</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="6824c1e42977132addcc088704747895" labels="accepts"
+              source="refactoring_guru.strategy.example.strategies.PayByCreditCard" target="int">
+            <data key="labels">accepts</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="c3f69830ed85e76576361dc462ab25a6" labels="accepts" source="refactoring_guru.strategy.example.Demo"
+              target="java.lang.String">
+            <data key="labels">accepts</data>
+            <data key="weight">1</data>
+        </edge>
+        <edge id="c5cbadbc5139791e7564d0319212a905" labels="calls"
+              source="refactoring_guru.strategy.example.strategies.PayByPayPal" target="java.lang.String">
+            <data key="labels">calls</data>
+            <data key="weight">7</data>
+        </edge>
+        <edge id="e5bd1992dec9edc19d33b68d9b91b58b" labels="specializes"
+              source="refactoring_guru.strategy.example.strategies.PayByPayPal"
+              target="refactoring_guru.strategy.example.strategies.PayStrategy">
+            <data key="labels">specializes</data>
+            <data key="weight">1</data>
+        </edge>
+    </graph>
+    <key attr.name="simpleName" for="node" id="simpleName"/>
+    <key attr.name="kind" for="node" id="kind"/>
+    <key attr.name="weight" for="edge" id="weight"/>
+</graphml>

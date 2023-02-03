@@ -17,3 +17,11 @@ interface GraphCodec<GraphType, NodesType, EdgesType, NodeType, EdgeType> {
     fun writeToFile(graph: Graph, directory: String, baseName: String)
 }
 
+object Codecs : HashMap<String, GraphCodec<*, *, *, *, *>>() {
+    init {
+        this["csv"] = CsvCodec
+        this["json"] = CyJsonCodec
+        this["xml"] = GraphMLCodec
+    }
+}
+
