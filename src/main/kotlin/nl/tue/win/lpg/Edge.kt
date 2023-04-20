@@ -3,14 +3,9 @@ package nl.tue.win.lpg
 import nl.tue.win.lpg.encoder.CyJsonCodec
 import nl.tue.win.lpg.encoder.GraphCodec
 
-class Edge(val sourceId: String, val targetId: String, val id: String, vararg labels: String = arrayOf()) {
+class Edge(val sourceId: String, val targetId: String, val id: String, val label: String) {
 
-    val labels: Set<String>
     val properties: HashMap<String, Any> = HashMap()
-
-    init {
-        this.labels = setOf(*labels)
-    }
 
     operator fun get(property: String): Any? {
         return properties[property]
@@ -28,7 +23,7 @@ class Edge(val sourceId: String, val targetId: String, val id: String, vararg la
 
         if (sourceId != other.sourceId) return false
         if (targetId != other.targetId) return false
-        if (labels != other.labels) return false
+        if (label != other.label) return false
         if (properties != other.properties) return false
 
         return true
@@ -37,7 +32,7 @@ class Edge(val sourceId: String, val targetId: String, val id: String, vararg la
     override fun hashCode(): Int {
         var result = sourceId.hashCode()
         result = 31 * result + targetId.hashCode()
-        result = 31 * result + labels.hashCode()
+        result = 31 * result + label.hashCode()
         result = 31 * result + properties.hashCode()
         return result
     }

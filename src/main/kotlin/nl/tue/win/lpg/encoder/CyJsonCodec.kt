@@ -43,7 +43,7 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
             put("id", edge.id)
             put("source", edge.sourceId)
             put("target", edge.targetId)
-            put("labels", edge.labels)
+            put("label", edge.label)
             put("properties", JSONObject(edge.properties))
         }
         val element = JSONObject()
@@ -91,9 +91,7 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
             data["source"] as String,
             data["target"] as String,
             data["id"] as String,
-            *(data["labels"] as JSONArray).toSet()
-                .map { it.toString() }
-                .toTypedArray()
+            data["label"] as String
         )
         val properties = data["properties"] as JSONObject
         properties.keys().forEach {

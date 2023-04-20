@@ -119,14 +119,13 @@ object GraphMLCodec : GraphCodec<Document, NodeList, NodeList, Element, Element>
     private fun encodeEdge(edge: Edge, doc: Document): Element {
         return doc.createElement("edge").apply {
             setAttribute("id", edge.id)
-            val labels = edge.labels.joinToString(",")
-            setAttribute("labels", labels)
+            setAttribute("label", edge.label)
             setAttribute("source", edge.sourceId)
             setAttribute("target", edge.targetId)
 
             appendChild(doc.createElement("data").apply {
                 setAttribute("key", "labels")
-                textContent = labels
+                textContent = edge.label
             })
 
             edge.properties.forEach { (key, value) ->

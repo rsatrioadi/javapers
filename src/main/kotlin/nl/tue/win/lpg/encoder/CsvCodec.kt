@@ -41,7 +41,7 @@ object CsvCodec : GraphCodec<CsvRowsList, CsvRows, CsvRows, CsvRow, CsvRow> {
             it["id"] = edge.id
             it["source"] = edge.sourceId
             it["target"] = edge.targetId
-            it["labels"] = edge.labels.joinToString(",")
+            it["label"] = edge.label
             edge.properties.keys.forEach { key -> it[key] = edge.properties[key] }
             it.setPreferredColumnOrder("id", "source", "target", "labels")
         }

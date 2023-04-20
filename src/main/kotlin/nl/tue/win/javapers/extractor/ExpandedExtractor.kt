@@ -11,9 +11,9 @@ import spoon.reflect.declaration.CtExecutable
 import spoon.reflect.declaration.CtMethod
 import spoon.reflect.visitor.filter.TypeFilter
 
-class ExpandedExtractor(private val projectName: String) : GraphExtractor {
+class ExpandedExtractor(private val projectName: String, val model: CtModel) : GraphExtractor {
 
-    override fun extract(model: CtModel): Graph {
+    override fun extract(): Graph {
         return Graph(projectName).also { g ->
 
             // let's ignore void
@@ -48,7 +48,9 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                 }
             }
 
-            model.allTypes.forEach { type ->
+            val allTypes = model.allTypes.flatMap { allTypesForReal(it) }
+
+            allTypes.forEach { type ->
                 // Structure
                 Node(type.qualifiedName, "Structure").let { node ->
                     node["simpleName"] = type.simpleName
@@ -68,8 +70,18 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                 }
             }
 
-            model.allTypes.forEach { type ->
+            allTypes.forEach { type ->
+
                 g.nodes.findById(type.qualifiedName)?.let { node ->
+
+                    type.nestedTypes.forEach { nestedType ->
+
+                        g.nodes.findById(nestedType.qualifiedName)?.let { nestedTypeNode ->
+                            g.edges.add(makeEdge(nestedTypeNode, node, 1, "contains").also { edge ->
+                                edge["containmentType"] = "nested class"
+                            })
+                        }
+                    }
 
                     type.ancestors.forEach {
                         g.nodes.findById(it.qualifiedName)?.let { ancestor ->
@@ -155,7 +167,7 @@ class ExpandedExtractor(private val projectName: String) : GraphExtractor {
                 }
             }
 
-            model.allTypes.forEach { type ->
+            allTypes.forEach { type ->
                 g.nodes.findById(type.qualifiedName)?.let { node ->
 
 

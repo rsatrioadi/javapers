@@ -4,11 +4,16 @@ import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
 import spoon.reflect.code.*
+import spoon.reflect.declaration.CtType
 import spoon.reflect.visitor.filter.TypeFilter
 
-class CompactedExtractor(private val projectName: String) : GraphExtractor {
+class CompactedExtractor(private val projectName: String, val model: CtModel) : GraphExtractor {
 
-    override fun extract(model: CtModel): Graph {
+    override fun extract(): Graph {
+        return extract(false)
+    }
+
+    fun extract(extractFeatures: Boolean): Graph {
         return Graph(projectName).also { g ->
 
             // let's ignore void
@@ -43,7 +48,9 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                 }
             }
 
-            model.allTypes.forEach { type ->
+            val allTypes = model.allTypes.flatMap { allTypesForReal(it) }
+
+            allTypes.forEach { type ->
                 // Structure
                 Node(type.qualifiedName, "Structure").let { node ->
                     node["simpleName"] = type.simpleName
@@ -55,21 +62,107 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
                             "class"
                         }
                     }
+
+                    if (extractFeatures) {
+                        val features = ClassFeatures(type, model)
+
+                        node["isPublic"] = features.isPublic
+
+                        node["isClass"] = features.isClass
+                        node["isInterface"] = features.isInterface
+                        node["isAbstract"] = features.isAbstract
+                        node["isEnum"] = features.isEnum
+                        node["isStatic"] = features.isStatic
+
+                        node["isSerializable"] = features.isSerializable
+                        node["isCollection"] = features.isCollection
+                        node["isIterable"] = features.isIterable
+                        node["isMap"] = features.isMap
+                        node["isAWTComponent"] = features.isAWTComponent
+
+                        node["namedController"] = features.namedController
+                        node["namedManager"] = features.namedManager
+                        node["namedListener"] = features.namedListener
+                        node["namedTest"] = features.namedTest
+
+                        node["numFields"] = features.numFields
+                        node["numPublicFields"] = features.numPublicFields
+                        node["numPrivateFields"] = features.numPrivateFields
+                        node["numPrimitiveFields"] = features.numPrimitiveFields
+                        node["numCollectionFields"] = features.numCollectionFields
+                        node["numIterableFields"] = features.numIterableFields
+                        node["numMapFields"] = features.numMapFields
+                        node["numAWTComponentFields"] = features.numAWTComponentFields
+
+                        node["ratioPublicFields"] = features.ratioPublicFields
+                        node["ratioPrivateFields"] = features.ratioPrivateFields
+
+                        node["numMethods"] = features.numMethods
+                        node["numPublicMethods"] = features.numPublicMethods
+                        node["numPrivateMethods"] = features.numPrivateMethods
+                        node["numAbstractMethods"] = features.numAbstractMethods
+                        node["numGetters"] = features.numGetters
+                        node["numSetters"] = features.numSetters
+
+                        node["ratioPublicMethods"] = features.ratioPublicMethods
+                        node["ratioPrivateMethods"] = features.ratioPrivateMethods
+                        node["ratioAbstractMethods"] = features.ratioAbstractMethods
+                        node["ratioGetters"] = features.ratioGetters
+                        node["ratioSetters"] = features.ratioSetters
+
+                        node["ratioGettersToFields"] = features.ratioGettersToFields
+                        node["ratioSettersToFields"] = features.ratioSettersToFields
+
+                        node["numStatementsInMethods"] = features.numStatementsInMethods
+                        node["averageStatementsPerMethod"] = features.averageStatementsPerMethod
+                        node["numParametersInMethods"] = features.numParametersInMethods
+                        node["averageParametersPerMethod"] = features.averageParametersPerMethod
+                        node["numBranchingInMethods"] = features.numBranchingInMethods
+                        node["averageBranchingPerMethod"] = features.averageBranchingPerMethod
+                        node["numLoopsInMethods"] = features.numLoopsInMethods
+                        node["averageLoopsPerMethod"] = features.averageLoopsPerMethod
+
+                        node["accessesIO"] = features.accessesIO
+
+                        node["maxLoopDepth"] = features.maxLoopDepth
+                    }
+
                     g.nodes.add(node)
                     // Container-contains-Structure
                     g.nodes.findById(type.`package`.qualifiedName)?.let { pkgNode ->
-                        g.edges.add(makeEdge(pkgNode, node, 1, "contains"))
+                        g.edges.add(makeEdge(pkgNode, node, 1, "contains").also { edge ->
+                            edge["containmentType"] = "package"
+                        })
                     }
                 }
             }
 
-            model.allTypes.forEach { type ->
+            allTypes.forEach { type ->
                 g.nodes.findById(type.qualifiedName)?.let { node ->
 
-                    type.ancestors.forEach {
+                    type.nestedTypes.forEach { nestedType ->
+
+                        g.nodes.findById(nestedType.qualifiedName)?.let { nestedTypeNode ->
+                            g.edges.add(makeEdge(nestedTypeNode, node, 1, "contains").also { edge ->
+                                edge["containmentType"] = "nested class"
+                            })
+                        }
+                    }
+
+                    if (type.superclass != null) {
+                        g.nodes.findById(type.superclass.qualifiedName)?.let { ancestor ->
+                            // specializes
+                            g.edges.add(makeEdge(node, ancestor, 1, "specializes").also { edge ->
+                                edge["specializationType"] = "extends"
+                            })
+                        }
+                    }
+                    type.superInterfaces.forEach {
                         g.nodes.findById(it.qualifiedName)?.let { ancestor ->
                             // specializes
-                            g.edges.add(makeEdge(node, ancestor, 1, "specializes"))
+                            g.edges.add(makeEdge(node, ancestor, 1, "specializes").also { edge ->
+                                edge["specializationType"] = "implements"
+                            })
                         }
                     }
 
@@ -187,4 +280,8 @@ class CompactedExtractor(private val projectName: String) : GraphExtractor {
             }
         }
     }
+}
+
+fun allTypesForReal(type: CtType<*>): Set<CtType<*>> {
+    return setOf(type, *type.nestedTypes.flatMap { allTypesForReal(it) }.toTypedArray())
 }

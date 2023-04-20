@@ -4,7 +4,6 @@ import nl.tue.win.javapers.extractor.CompactedExtractor
 import nl.tue.win.javapers.extractor.ExpandedExtractor
 import nl.tue.win.lib.Either
 import nl.tue.win.lpg.encoder.Codecs
-import nl.tue.win.lpg.encoder.CsvCodec
 import org.kohsuke.args4j.CmdLineParser
 import spoon.Launcher
 import java.nio.file.Files
@@ -27,13 +26,12 @@ open class Javapers {
                 buildModel()
             }
             val graph =
-                (if (options.compacted) CompactedExtractor(options.baseName)
-                else ExpandedExtractor(options.baseName))
-                    .extract(model)
-            val graphCodec = Codecs[options.format] ?: CsvCodec
-            println(graphCodec.javaClass)
+                (if (options.compacted) CompactedExtractor(options.baseName, model)
+                else ExpandedExtractor(options.baseName, model))
+                    .extract()
+            val graphCodec = Codecs[options.format]
             val directory = makeDir(options.outputPath)
-            graphCodec.writeToFile(graph, directory, options.baseName)
+            graphCodec?.writeToFile(graph, directory, options.baseName)
         }
     }
 }
