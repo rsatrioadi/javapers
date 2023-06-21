@@ -2,13 +2,13 @@ package nl.tue.win.javapers.extractor
 
 import nl.tue.win.lib.md5
 import nl.tue.win.lpg.Graph
-import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
 import spoon.reflect.code.CtConstructorCall
 import spoon.reflect.code.CtInvocation
 import spoon.reflect.declaration.CtConstructor
 import spoon.reflect.declaration.CtExecutable
 import spoon.reflect.declaration.CtMethod
+import spoon.reflect.declaration.CtModifiable
 import spoon.reflect.visitor.filter.TypeFilter
 
 class ExpandedExtractor(private val projectName: String, val model: CtModel) : GraphExtractor {
@@ -17,27 +17,22 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
         return Graph(projectName).also { g ->
 
             // let's ignore void
-            listOf("byte", "char", "short", "int", "long", "float", "double", "boolean")
+            primitiveTypes
                 .forEach { prim ->
                     // Primitives
-                    Node(prim, "Primitive").let { node ->
-                        node["simpleName"] = prim
-                        g.nodes.add(node)
-                    }
+                    makeNode(prim, "Primitive", simpleName = prim).let { node -> g.nodes.add(node) }
                 }
             // Let's consider String a Primitive
-            Node("java.lang.String", "Structure").let { node ->
-                node["simpleName"] = "String"
-                g.nodes.add(node)
-            }
+            g.nodes.add(makeNode("java.lang.String", "Structure", simpleName = "String"))
 
             model.allPackages.filter { !it.isUnnamedPackage }.forEach { pkg ->
                 // Containers
-                Node(pkg.qualifiedName, "Container").let { node ->
-                    node["simpleName"] = pkg.simpleName
-                    node["kind"] = "package"
-                    g.nodes.add(node)
-                }
+                makeNode(pkg.qualifiedName, "Container", simpleName = pkg.simpleName)
+                    .let { node ->
+                        node["kind"] = "package"
+                        g.nodes.add(node)
+                    }
+
             }
 
             model.allPackages.filter { !it.isUnnamedPackage }.forEach { pkg ->
@@ -52,8 +47,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 
             allTypes.forEach { type ->
                 // Structure
-                Node(type.qualifiedName, "Structure").let { node ->
-                    node["simpleName"] = type.simpleName
+                makeNode(type.qualifiedName, "Structure", simpleName = type.simpleName).let { node ->
                     node["kind"] = when {
                         type.isInterface -> "interface"
                         type.isEnum -> "enumeration"
@@ -77,7 +71,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
                     type.nestedTypes.forEach { nestedType ->
 
                         g.nodes.findById(nestedType.qualifiedName)?.let { nestedTypeNode ->
-                            g.edges.add(makeEdge(nestedTypeNode, node, 1, "contains").also { edge ->
+                            g.edges.add(makeEdge(node, nestedTypeNode, 1, "contains").also { edge ->
                                 edge["containmentType"] = "nested class"
                             })
                         }
@@ -92,9 +86,13 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 
                     type.fields.forEach { field ->
                         // Variable [kind=field]
-                        Node("${type.qualifiedName}.${field.simpleName}", "Variable").let { fieldNode ->
-                            fieldNode["simpleName"] = field.simpleName
+                        makeNode(
+                            "${type.qualifiedName}.${field.simpleName}",
+                            "Variable",
+                            simpleName = field.simpleName
+                        ).let { fieldNode ->
                             fieldNode["kind"] = "field"
+                            fieldNode["sourceText"] = field.toString()
                             g.nodes.add(fieldNode)
 
                             g.nodes.findById(field.type.qualifiedName)?.let { fieldTypeNode ->
@@ -116,9 +114,28 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
                             }
                         }
                         // Script
-                        Node("${node.id}.${names.first}", names.second).let { scriptNode ->
-                            scriptNode["simpleName"] = names.first
+                        makeNode(
+                            "${node.id}.${names.first}",
+                            names.second,
+                            simpleName = names.first
+                        ).let { scriptNode ->
                             scriptNode["kind"] = names.third
+                            scriptNode["sourceText"] = script.toString()
+                            scriptNode["visibility"] = when (script) {
+                                is CtModifiable -> if (script.isPublic) {
+                                    "public"
+                                } else if (script.isPrivate) {
+                                    "private"
+                                } else if (script.isProtected) {
+                                    "protected"
+                                } else {
+                                    "default"
+                                }
+
+                                else -> {
+                                    "unknown"
+                                }
+                            }
                             g.nodes.add(scriptNode)
 
                             // hasScript
@@ -133,8 +150,11 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 
                             script.parameters.forEach { param ->
                                 // Variable
-                                Node("${node.id}.${names.first}.${param.simpleName}", "Variable").let { paramNode ->
-                                    paramNode["simpleName"] = param.simpleName
+                                makeNode(
+                                    "${node.id}.${names.first}.${param.simpleName}",
+                                    "Variable",
+                                    simpleName = param.simpleName
+                                ).let { paramNode ->
                                     paramNode["kind"] = "parameter"
                                     g.nodes.add(paramNode)
 
@@ -169,7 +189,6 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 
             allTypes.forEach { type ->
                 g.nodes.findById(type.qualifiedName)?.let { node ->
-
 
                     type.typeMembers.filter { it is CtExecutable<*> }.map { it as CtExecutable<*> }.forEach { script ->
                         val names = when (script) {

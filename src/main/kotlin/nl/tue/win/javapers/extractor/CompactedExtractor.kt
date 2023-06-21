@@ -17,24 +17,19 @@ class CompactedExtractor(private val projectName: String, val model: CtModel) : 
         return Graph(projectName).also { g ->
 
             // let's ignore void
-            listOf("byte", "char", "short", "int", "long", "float", "double", "boolean")
+            primitiveTypes
                 .forEach { prim ->
                     // Primitives
-                    Node(prim, "Primitive").let { node ->
-                        node["simpleName"] = prim
-                        g.nodes.add(node)
-                    }
+                    makeNode(prim, "Primitive", simpleName = prim).let { node -> g.nodes.add(node) }
                 }
             // Let's consider String a Primitive
-            Node("java.lang.String", "Structure").let { node ->
-                node["simpleName"] = "String"
+            makeNode("java.lang.String", "Structure", simpleName = "String").let { node ->
                 g.nodes.add(node)
             }
 
             model.allPackages.filter { !it.isUnnamedPackage }.forEach { pkg ->
                 // Containers
-                Node(pkg.qualifiedName, "Container").let { node ->
-                    node["simpleName"] = pkg.simpleName
+                makeNode(pkg.qualifiedName, "Container", simpleName = pkg.simpleName).let { node ->
                     node["kind"] = "package"
                     g.nodes.add(node)
                 }
@@ -52,8 +47,7 @@ class CompactedExtractor(private val projectName: String, val model: CtModel) : 
 
             allTypes.forEach { type ->
                 // Structure
-                Node(type.qualifiedName, "Structure").let { node ->
-                    node["simpleName"] = type.simpleName
+                makeNode(type.qualifiedName, "Structure", simpleName = type.simpleName).let { node ->
                     node["kind"] = when {
                         type.isInterface -> "interface"
                         type.isEnum -> "enumeration"
@@ -62,6 +56,7 @@ class CompactedExtractor(private val projectName: String, val model: CtModel) : 
                             "class"
                         }
                     }
+                    node["sourceText"] = type.toString()
 
                     if (extractFeatures) {
                         val features = ClassFeatures(type, model)
