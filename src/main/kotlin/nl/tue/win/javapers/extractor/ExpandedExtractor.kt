@@ -50,8 +50,8 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
                 makeNode(type.qualifiedName, "Structure", simpleName = type.simpleName).let { node ->
                     node["kind"] = when {
                         type.isInterface -> "interface"
-                        type.isEnum -> "enumeration"
-                        type.isAbstract -> "abstract"
+                        type.isEnum -> "enum"
+                        type.isAbstract -> "abstract class"
                         else -> {
                             "class"
                         }

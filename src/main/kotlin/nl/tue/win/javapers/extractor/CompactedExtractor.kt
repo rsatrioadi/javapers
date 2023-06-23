@@ -1,7 +1,6 @@
 package nl.tue.win.javapers.extractor
 
 import nl.tue.win.lpg.Graph
-import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
 import spoon.reflect.code.*
 import spoon.reflect.declaration.CtType
@@ -50,8 +49,8 @@ class CompactedExtractor(private val projectName: String, val model: CtModel) : 
                 makeNode(type.qualifiedName, "Structure", simpleName = type.simpleName).let { node ->
                     node["kind"] = when {
                         type.isInterface -> "interface"
-                        type.isEnum -> "enumeration"
-                        type.isAbstract -> "abstract"
+                        type.isEnum -> "enum"
+                        type.isAbstract -> "abstract class"
                         else -> {
                             "class"
                         }
