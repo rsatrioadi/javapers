@@ -56,6 +56,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
                             "class"
                         }
                     }
+                    node["docComment"] = type.docComment
                     g.nodes.add(node)
                     // Container-contains-Structure
                     g.nodes.findById(type.`package`.qualifiedName)?.let { pkgNode ->
@@ -121,6 +122,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
                         ).let { scriptNode ->
                             scriptNode["kind"] = names.third
                             scriptNode["sourceText"] = script.toString()
+                            scriptNode["docComment"] = script.docComment
                             scriptNode["visibility"] = when (script) {
                                 is CtModifiable -> if (script.isPublic) {
                                     "public"
