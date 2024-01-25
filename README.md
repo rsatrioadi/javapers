@@ -30,7 +30,7 @@ $ java -jar javapers.jar <args>
 
 ## Showcase
 
-Consult the `sample_output` directory to get a feel of what the resulting knowledge graph may look like.
+Consult the `sample_output` directory to get a feel of what the resulting knowledge graph looks like.
 
 Check out [classviz](https://github.com/rsatrioadi/classviz), a project that uses an output of javapers as input for visualizing class relationships. Specifically, it takes the json-formatted output of the abstract graph type.
 
