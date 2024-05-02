@@ -137,9 +137,7 @@ class CompactedExtractor(private val projectName: String, val model: CtModel) : 
                     type.nestedTypes.forEach { nestedType ->
 
                         g.nodes.findById(nestedType.qualifiedName)?.let { nestedTypeNode ->
-                            g.edges.add(makeEdge(nestedTypeNode, node, 1, "contains").also { edge ->
-                                edge["containmentType"] = "nested class"
-                            })
+                            g.edges.add(makeEdge(nestedTypeNode, node, 1, "nests"))
                         }
                     }
 
