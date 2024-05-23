@@ -2,369 +2,494 @@ package nl.tue.win.javapers.extractor
 
 import nl.tue.win.lib.md5
 import nl.tue.win.lpg.Graph
+import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
 import spoon.reflect.code.CtConstructorCall
 import spoon.reflect.code.CtInvocation
-import spoon.reflect.declaration.CtConstructor
-import spoon.reflect.declaration.CtExecutable
-import spoon.reflect.declaration.CtMethod
-import spoon.reflect.declaration.CtModifiable
+import spoon.reflect.declaration.*
 import spoon.reflect.reference.CtArrayTypeReference
 import spoon.reflect.visitor.filter.TypeFilter
 
 
 class ExpandedExtractor(private val projectName: String, val model: CtModel) : GraphExtractor {
 
-    override fun extract(): Graph {
-        return Graph(projectName).also { g ->
+	private var _extractFeatures: Boolean = false
 
-            // let's ignore void
-            primitiveTypes
-                .forEach { prim ->
-                    // Primitives
-                    makeNode(prim, "Primitive", simpleName = prim).let { node -> g.nodes.add(node) }
-                }
-            // Let's consider String a Primitive
-            g.nodes.add(makeNode("java.lang.String", "Structure", simpleName = "String"))
+	override fun extract(): Graph {
+		return extract(false)
+	}
 
-            model.allPackages
-                .filter { !it.isUnnamedPackage }
-                .forEach { pkg ->
-                    // Containers
-                    makeNode(pkg.qualifiedName, "Container", simpleName = pkg.simpleName)
-                        .let { node ->
-                            node["kind"] = "package"
-                            g.nodes.add(node)
-                        }
-                }
+	fun extract(extractFeatures: Boolean): Graph {
+		return Graph(projectName).also { g ->
 
-            model.allPackages
-                .filter { !it.isUnnamedPackage }
-                .forEach { pkg ->
-                    val pkgNode = g.nodes.findById(pkg.qualifiedName)!!
-                    g.nodes.findById(pkg.declaringPackage.qualifiedName)?.let { declPkgNode ->
-                        // Container-contains-Container
-                        g.edges.add(makeEdge(declPkgNode, pkgNode, 1, "contains"))
-                    }
-                }
+			addPrimitives(g)
 
-            val allTypes = model.allTypes.flatMap { allTypesForReal(it) }
+			addPackages(g)
 
-            allTypes.forEach { type ->
-                // Structure
-                makeNode(type.qualifiedName, "Structure", simpleName = type.simpleName).let { node ->
-                    node["kind"] = when {
-                        type.isInterface -> "interface"
-                        type.isEnum -> "enum"
-                        type.isAbstract -> "abstract"
-                        else -> {
-                            "class"
-                        }
-                    }
-                    node["docComment"] = type.docComment
-//                    node["sourceText"] = type.toString()
-                    g.nodes.add(node)
-                    // Container-contains-Structure
-                    g.nodes.findById(type.`package`.qualifiedName)?.let { pkgNode ->
-                        g.edges.add(makeEdge(pkgNode, node, 1, "contains"))
-                    }
-                }
-            }
+			val allTypes = model.allTypes.flatMap { allTypesForReal(it) }
 
-            allTypes.forEach { type ->
+			addClasses(g, allTypes)
 
-                g.nodes.findById(type.qualifiedName)?.let { node ->
+			allTypes.forEach { type ->
 
-                    type.nestedTypes.forEach { nestedType ->
+				g.nodes.findById(type.qualifiedName)?.let { node ->
 
-                        g.nodes.findById(nestedType.qualifiedName)?.let { nestedTypeNode ->
-                            g.edges.add(makeEdge(node, nestedTypeNode, 1, "nests"))
-                        }
-                    }
+					addClassNestings(g, node, type)
 
-                    type.ancestors.forEach {
-                        g.nodes.findById(it.qualifiedName)?.let { ancestor ->
-                            // specializes
-                            g.edges.add(makeEdge(node, ancestor, 1, "specializes"))
-                        }
-                    }
+					addInheritances(g, node, type)
 
-                    type.fields.forEach { field ->
-                        // Variable [kind=field]
-                        makeNode(
-                            "${type.qualifiedName}.${field.simpleName}",
-                            "Variable",
-                            simpleName = field.simpleName
-                        ).let { fieldNode ->
-                            fieldNode["kind"] = "field"
-                            fieldNode["sourceText"] = field.toString()
-                            fieldNode["visibility"] = if (field.isPublic) {
-                                "public"
-                            } else if (field.isPrivate) {
-                                "private"
-                            } else if (field.isProtected) {
-                                "protected"
-                            } else {
-                                "default"
-                            }
-                            g.nodes.add(fieldNode)
+					addFields(g, node, type)
 
-                            if (field.type.isArray) {
+					// Scripts
+					type.typeMembers
+						.filter { it is CtExecutable<*> }
+						.map { it as CtExecutable<*> }
+						.forEach { script ->
+							val scriptDetails = extractSignatureLabelKind(script)
+							val qualifiedName = "${node.id}.${scriptDetails.first}"
 
-                                g.nodes.findById((field.type as CtArrayTypeReference).arrayType.qualifiedName)
-                                    ?.let { fieldTypeNode ->
-                                        // Variable-type-Type
-                                        g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
-                                            .also { edge ->
-                                                edge["kind"] = "array"
-                                            })
-                                    }
+							// Script
+							makeNode(
+								qualifiedName,
+								scriptDetails.second,
+								simpleName = scriptDetails.first
+							).let { scriptNode ->
+								scriptNode["qualifiedName"] = qualifiedName
+								addMethod(scriptNode, scriptDetails, script, g, node)
 
-                            } else {
+								addMethodReturnType(g, scriptNode, script)
 
-                                g.nodes.findById(field.type.qualifiedName)?.let { fieldTypeNode ->
-                                    // Variable-type-Type
-                                    g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
-                                        .also { edge ->
-                                            edge["kind"] = "type"
-                                        })
-                                }
+								script.parameters.forEach { param ->
+									val paramQualifiedName = "${node.id}.${scriptDetails.first}.${param.simpleName}"
+									// Variable
+									makeNode(
+										paramQualifiedName,
+										"Variable",
+										simpleName = param.simpleName
+									).let { paramNode ->
+										paramNode["qualifiedName"] = paramQualifiedName
+										paramNode["kind"] = "parameter"
+										g.nodes.add(paramNode)
 
-                                (field.type.actualTypeArguments ?: listOf())
-                                    .groupingBy { it }
-                                    .eachCount()
-                                    .forEach { (typeArg, count) ->
+										addMethodParamTypes(g, paramNode, param)
 
-                                        g.nodes.findById(typeArg.qualifiedName)?.let { fieldTypeNode ->
-                                            // Variable-type-Type
-                                            g.edges.add(makeEdge(fieldNode, fieldTypeNode, count, "type").also { edge ->
-                                                edge["kind"] = "type argument"
-                                            })
-                                        }
-                                    }
-                            }
+										// hasParameter
+										g.edges.add(makeEdge(scriptNode, paramNode, 1, "hasParameter"))
+									}
+								}
 
-                            // Structure-hasVariable-Variable
-                            g.edges.add(makeEdge(node, fieldNode, 1, "hasVariable"))
-                        }
-                    }
+								addConstructorCalls(g, scriptNode, script)
+							}
+						}
+				}
+			}
 
-                    // Scripts
-                    type.typeMembers
-                        .filter { it is CtExecutable<*> }
-                        .map { it as CtExecutable<*> }
-                        .forEach { script ->
-                            val names = when (script) {
-                                is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
-                                is CtMethod<*> -> Triple(script.signature, "Operation", "method")
-                                else -> {
-                                    Triple(md5(script.toString()), "Script", "script")
-                                }
-                            }
-                            // Script
-                            makeNode(
-                                "${node.id}.${names.first}",
-                                names.second,
-                                simpleName = names.first
-                            ).let { scriptNode ->
-                                scriptNode["kind"] = names.third
-                                scriptNode["sourceText"] = script.toString()
-                                scriptNode["docComment"] = script.docComment
-                                scriptNode["visibility"] = when (script) {
-                                    is CtModifiable ->
-                                        if (script.isPublic) {
-                                            "public"
-                                        } else if (script.isPrivate) {
-                                            "private"
-                                        } else if (script.isProtected) {
-                                            "protected"
-                                        } else {
-                                            "default"
-                                        }
+			addMethodCalls(g, allTypes)
+		}
+	}
 
-                                    else -> {
-                                        "unknown"
-                                    }
-                                }
-                                g.nodes.add(scriptNode)
+	private fun extractSignatureLabelKind(script: CtExecutable<*>) = when (script) {
+		is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
+		is CtMethod<*> -> Triple(script.signature, "Operation", "method")
+		else -> {
+			Triple(md5(script.toString()), "Script", "script")
+		}
+	}
 
-                                // hasScript
-                                g.edges.add(makeEdge(node, scriptNode, 1, "hasScript"))
+	private fun addPrimitives(g: Graph) {
+		// let's ignore void
+		primitiveTypes
+			.forEach { prim ->
+				// Primitives
+				makeNode(prim, "Primitive", simpleName = prim)
+					.let { node ->
+						node["qualifiedName"] = prim
+						g.nodes.add(node)
+					}
+			}
+		// Let's consider String a Primitive
+		g.nodes.add(makeNode("java.lang.String", "Structure", simpleName = "String"))
+	}
 
-                                if (script.type.isArray) {
+	private fun addPackages(g: Graph) {
+		model.allPackages
+			.filter { !it.isUnnamedPackage }
+			.forEach { pkg ->
+				// Containers
+				makeNode(pkg.qualifiedName, "Container", simpleName = pkg.simpleName)
+					.let { node ->
+						node["qualifiedName"] = pkg.qualifiedName
+						node["kind"] = "package"
+						g.nodes.add(node)
+					}
+			}
+		model.allPackages
+			.filter { !it.isUnnamedPackage }
+			.forEach { pkg ->
+				val pkgNode = g.nodes.findById(pkg.qualifiedName)!!
+				g.nodes.findById(pkg.declaringPackage.qualifiedName)?.let { declPkgNode ->
+					// Container-contains-Container
+					g.edges.add(makeEdge(declPkgNode, pkgNode, 1, "contains"))
+				}
+			}
+	}
 
-                                    g.nodes.findById((script.type as CtArrayTypeReference).arrayType.qualifiedName)
-                                        ?.let { scriptTypeNode ->
-                                            // returnType
-                                            g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType")
-                                                .also { edge ->
-                                                    edge["kind"] = "array"
-                                                })
-                                        }
+	private fun addClasses(g: Graph, allTypes: List<CtType<*>>) {
+		allTypes.forEach { type ->
+			// Structure
+			makeNode(type.qualifiedName, "Structure", simpleName = type.simpleName)
+				.let { node ->
+					node["qualifiedName"] = type.qualifiedName
+					node["kind"] = when {
+						type.isInterface -> "interface"
+						type.isEnum -> "enum"
+						type.isAbstract -> "abstract"
+						else -> {
+							"class"
+						}
+					}
+					node["docComment"] = type.docComment
+					//                    node["sourceText"] = type.toString()
 
-                                } else {
 
-                                    g.nodes.findById(script.type.qualifiedName)?.let { fieldTypeNode ->
-                                        // Variable-type-Type
-                                        g.edges.add(makeEdge(scriptNode, fieldTypeNode, 1, "returnType")
-                                            .also { edge ->
-                                                edge["kind"] = "type"
-                                            })
-                                    }
+					if (this._extractFeatures) {
+						val features = ClassFeatures(type, model)
 
-                                    (script.type.actualTypeArguments ?: listOf())
-                                        .groupingBy { it }
-                                        .eachCount()
-                                        .forEach { (typeArg, count) ->
+						node["isPublic"] = features.isPublic
 
-                                            g.nodes.findById(typeArg.qualifiedName)?.let { fieldTypeNode ->
-                                                // Variable-type-Type
-                                                g.edges.add(
-                                                    makeEdge(
-                                                        scriptNode,
-                                                        fieldTypeNode,
-                                                        count,
-                                                        "returnType"
-                                                    ).also { edge ->
-                                                        edge["kind"] = "type argument"
-                                                    })
-                                            }
+						node["isClass"] = features.isClass
+						node["isInterface"] = features.isInterface
+						node["isAbstract"] = features.isAbstract
+						node["isEnum"] = features.isEnum
+						node["isStatic"] = features.isStatic
 
-                                        }
+						node["isSerializable"] = features.isSerializable
+						node["isCollection"] = features.isCollection
+						node["isIterable"] = features.isIterable
+						node["isMap"] = features.isMap
+						node["isAWTComponent"] = features.isAWTComponent
 
-                                }
+						node["namedController"] = features.namedController
+						node["namedManager"] = features.namedManager
+						node["namedListener"] = features.namedListener
+						node["namedTest"] = features.namedTest
 
-                                script.parameters.forEach { param ->
-                                    // Variable
-                                    makeNode(
-                                        "${node.id}.${names.first}.${param.simpleName}",
-                                        "Variable",
-                                        simpleName = param.simpleName
-                                    ).let { paramNode ->
-                                        paramNode["kind"] = "parameter"
-                                        g.nodes.add(paramNode)
+						node["numFields"] = features.numFields
+						node["numPublicFields"] = features.numPublicFields
+						node["numPrivateFields"] = features.numPrivateFields
+						node["numPrimitiveFields"] = features.numPrimitiveFields
+						node["numCollectionFields"] = features.numCollectionFields
+						node["numIterableFields"] = features.numIterableFields
+						node["numMapFields"] = features.numMapFields
+						node["numAWTComponentFields"] = features.numAWTComponentFields
 
-                                        if (param.type.isArray) {
+						node["ratioPublicFields"] = features.ratioPublicFields
+						node["ratioPrivateFields"] = features.ratioPrivateFields
 
-                                            g.nodes.findById((param.type as CtArrayTypeReference).arrayType.qualifiedName)
-                                                ?.let { paramTypeNode ->
-                                                    // Variable-type-Type
-                                                    g.edges.add(
-                                                        makeEdge(
-                                                            paramNode,
-                                                            paramTypeNode,
-                                                            1,
-                                                            "type"
-                                                        ).also { edge ->
-                                                            edge["kind"] = "array"
-                                                        })
-                                                }
+						node["numMethods"] = features.numMethods
+						node["numPublicMethods"] = features.numPublicMethods
+						node["numPrivateMethods"] = features.numPrivateMethods
+						node["numAbstractMethods"] = features.numAbstractMethods
+						node["numGetters"] = features.numGetters
+						node["numSetters"] = features.numSetters
 
-                                        } else {
+						node["ratioPublicMethods"] = features.ratioPublicMethods
+						node["ratioPrivateMethods"] = features.ratioPrivateMethods
+						node["ratioAbstractMethods"] = features.ratioAbstractMethods
+						node["ratioGetters"] = features.ratioGetters
+						node["ratioSetters"] = features.ratioSetters
 
-                                            g.nodes.findById(param.type.qualifiedName)?.let { paramTypeNode ->
-                                                // Variable-type-Type
-                                                g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
-                                                    .also { edge ->
-                                                        edge["kind"] = "type"
-                                                    })
-                                            }
+						node["ratioGettersToFields"] = features.ratioGettersToFields
+						node["ratioSettersToFields"] = features.ratioSettersToFields
 
-                                            (param.type.actualTypeArguments ?: listOf())
-                                                .groupingBy { it }
-                                                .eachCount()
-                                                .forEach { (typeArg, count) ->
+						node["numStatementsInMethods"] = features.numStatementsInMethods
+						node["averageStatementsPerMethod"] = features.averageStatementsPerMethod
+						node["numParametersInMethods"] = features.numParametersInMethods
+						node["averageParametersPerMethod"] = features.averageParametersPerMethod
+						node["numBranchingInMethods"] = features.numBranchingInMethods
+						node["averageBranchingPerMethod"] = features.averageBranchingPerMethod
+						node["numLoopsInMethods"] = features.numLoopsInMethods
+						node["averageLoopsPerMethod"] = features.averageLoopsPerMethod
 
-                                                    g.nodes.findById(typeArg.qualifiedName)?.let { paramTypeNode ->
-                                                        // Variable-type-Type
-                                                        g.edges.add(
-                                                            makeEdge(
-                                                                paramNode,
-                                                                paramTypeNode,
-                                                                count,
-                                                                "type"
-                                                            ).also { edge ->
-                                                                edge["kind"] = "type argument"
-                                                            })
-                                                    }
+						node["accessesIO"] = features.accessesIO
 
-                                                }
+						node["maxLoopDepth"] = features.maxLoopDepth
+					}
 
-                                        }
 
-                                        // hasParameter
-                                        g.edges.add(makeEdge(scriptNode, paramNode, 1, "hasParameter"))
-                                    }
-                                }
+					g.nodes.add(node)
+					// Container-contains-Structure
+					g.nodes.findById(type.`package`.qualifiedName)?.let { pkgNode ->
+						g.edges.add(makeEdge(pkgNode, node, 1, "contains"))
+					}
+				}
+		}
+	}
 
-                                val ctorCalls = (script.getElements(TypeFilter(CtConstructorCall::class.java))?.toList()
-                                    ?: listOf())
-                                    .stream()
-                                    .filter { (it != null) && (it.type != null) && !it.type.isArray }
-                                    .toList()
+	private fun addClassNestings(g: Graph, node: Node, type: CtType<*>) {
+		type.nestedTypes.forEach { nestedType ->
 
-                                val constructedTypes = ctorCalls
-                                    .map { it.type }
-                                    .groupingBy { it }
-                                    .eachCount()
+			g.nodes.findById(nestedType.qualifiedName)?.let { nestedTypeNode ->
+				g.edges.add(makeEdge(node, nestedTypeNode, 1, "nests"))
+			}
+		}
+	}
 
-                                val constructedTypeArgs = ctorCalls
-                                    .flatMap { it.actualTypeArguments ?: listOf() }
-                                    .groupingBy { it }
-                                    .eachCount()
+	private fun addInheritances(g: Graph, node: Node, type: CtType<*>) {
+		type.ancestors.forEach {
+			g.nodes.findById(it.qualifiedName)?.let { ancestor ->
+				// specializes
+				g.edges.add(makeEdge(node, ancestor, 1, "specializes"))
+			}
+		}
+	}
 
-                                constructedTypes.forEach { (constructedType, count) ->
-                                    constructedType?.also {
-                                        g.nodes.findById(it.qualifiedName)?.let { constructedTypeNode ->
-                                            // instantiates
-                                            g.edges.add(
-                                                makeEdge(
-                                                    scriptNode,
-                                                    constructedTypeNode,
-                                                    count,
-                                                    "instantiates"
-                                                )
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                }
-            }
+	private fun addFields(g: Graph, node: Node, type: CtType<*>) {
+		type.fields.forEach { field ->
+			// Variable [kind=field]
+			val qualifiedName = "${type.qualifiedName}.${field.simpleName}"
+			makeNode(
+				qualifiedName,
+				"Variable",
+				simpleName = field.simpleName
+			).let<Node, Unit> { fieldNode ->
+				fieldNode["qualifiedName"] = qualifiedName
+				fieldNode["kind"] = "field"
+				fieldNode["sourceText"] = field.toString()
+				fieldNode["visibility"] = if (field.isPublic) {
+					"public"
+				} else if (field.isPrivate) {
+					"private"
+				} else if (field.isProtected) {
+					"protected"
+				} else {
+					"default"
+				}
+				g.nodes.add(fieldNode)
 
-            allTypes.forEach { type ->
-                g.nodes.findById(type.qualifiedName)?.let { node ->
+				if (field.type.isArray) {
 
-                    type.typeMembers
-                        .filter { it is CtExecutable<*> }
-                        .map { it as CtExecutable<*> }
-                        .forEach { script ->
-                            val names = when (script) {
-                                is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
-                                is CtMethod<*> -> Triple(script.signature, "Operation", "method")
-                                else -> {
-                                    Triple(script.simpleName, "Script", "script")
-                                }
-                            }
-                            g.nodes.findById("${node.id}.${names.first}")?.let { scriptNode ->
-                                val invokedMethods =
-                                    script.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf()
-                                invokedMethods
-                                    .groupingBy { it.executable }
-                                    .eachCount()
-                                    .forEach { (method, count) ->
-                                        g.nodes.findById("${method.declaringType?.qualifiedName}.${method.signature}")
-                                            ?.let {
-                                                // invokes
-                                                g.edges.add(makeEdge(scriptNode, it, count, "invokes"))
-                                            }
-                                    }
-                            }
-                        }
+					g.nodes.findById((field.type as CtArrayTypeReference).arrayType.qualifiedName)
+						?.let { fieldTypeNode ->
+							// Variable-type-Type
+							g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
+								.also { edge ->
+									edge["kind"] = "array"
+								})
+						}
 
-                }
-            }
-        }
-    }
+				} else {
+
+					g.nodes.findById(field.type.qualifiedName)?.let { fieldTypeNode ->
+						// Variable-type-Type
+						g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
+							.also { edge ->
+								edge["kind"] = "type"
+							})
+					}
+
+					(field.type.actualTypeArguments ?: listOf())
+						.groupingBy { it }
+						.eachCount()
+						.forEach { (typeArg, count) ->
+
+							g.nodes.findById(typeArg.qualifiedName)?.let<Node, Unit> { fieldTypeNode ->
+								// Variable-type-Type
+								g.edges.add(makeEdge(fieldNode, fieldTypeNode, count, "type").also { edge ->
+									edge["kind"] = "type argument"
+								})
+							}
+						}
+				}
+
+				// Structure-hasVariable-Variable
+				g.edges.add(makeEdge(node, fieldNode, 1, "hasVariable"))
+			}
+		}
+	}
+
+	private fun addMethod(
+		scriptNode: Node,
+		names: Triple<String, String, String>,
+		script: CtExecutable<*>,
+		g: Graph,
+		node: Node
+	) {
+		scriptNode["kind"] = names.third
+		scriptNode["sourceText"] = script.toString()
+		scriptNode["docComment"] = script.docComment
+		scriptNode["visibility"] = when (script) {
+			is CtModifiable ->
+				if (script.isPublic) {
+					"public"
+				} else if (script.isPrivate) {
+					"private"
+				} else if (script.isProtected) {
+					"protected"
+				} else {
+					"default"
+				}
+
+			else -> {
+				"unknown"
+			}
+		}
+		g.nodes.add(scriptNode)
+
+		// hasScript
+		g.edges.add(makeEdge(node, scriptNode, 1, "hasScript"))
+	}
+
+	private fun addMethodReturnType(
+		g: Graph,
+		scriptNode: Node,
+		script: CtExecutable<*>
+	) {
+		if (script.type.isArray) {
+
+			g.nodes.findById((script.type as CtArrayTypeReference).arrayType.qualifiedName)
+				?.let { scriptTypeNode ->
+					// returnType
+					g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType")
+						.also { edge ->
+							edge["kind"] = "array"
+						})
+				}
+
+		} else {
+
+			g.nodes.findById(script.type.qualifiedName)?.let { fieldTypeNode ->
+				// Variable-type-Type
+				g.edges.add(makeEdge(scriptNode, fieldTypeNode, 1, "returnType")
+					.also { edge ->
+						edge["kind"] = "type"
+					})
+			}
+
+			(script.type.actualTypeArguments ?: listOf())
+				.groupingBy { it }
+				.eachCount()
+				.forEach { (typeArg, count) ->
+
+					g.nodes.findById(typeArg.qualifiedName)?.let { fieldTypeNode ->
+						// Variable-type-Type
+						g.edges.add(makeEdge(scriptNode, fieldTypeNode, count, "returnType")
+							.also { edge ->
+								edge["kind"] = "type argument"
+							})
+					}
+
+				}
+
+		}
+	}
+
+	private fun addMethodParamTypes(
+		g: Graph,
+		paramNode: Node,
+		param: CtParameter<*>
+	) {
+		if (param.type.isArray) {
+
+			g.nodes.findById((param.type as CtArrayTypeReference).arrayType.qualifiedName)
+				?.let { paramTypeNode ->
+					// Variable-type-Type
+					g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
+						.also { edge ->
+							edge["kind"] = "array"
+						})
+				}
+
+		} else {
+
+			g.nodes.findById(param.type.qualifiedName)?.let { paramTypeNode ->
+				// Variable-type-Type
+				g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
+					.also { edge ->
+						edge["kind"] = "type"
+					})
+			}
+
+			(param.type.actualTypeArguments ?: listOf())
+				.groupingBy { it }
+				.eachCount()
+				.forEach { (typeArg, count) ->
+
+					g.nodes.findById(typeArg.qualifiedName)?.let { paramTypeNode ->
+						// Variable-type-Type
+						g.edges.add(makeEdge(paramNode, paramTypeNode, count, "type")
+							.also { edge ->
+								edge["kind"] = "type argument"
+							})
+					}
+
+				}
+
+		}
+	}
+
+	private fun addConstructorCalls(
+		g: Graph,
+		scriptNode: Node,
+		script: CtExecutable<*>
+	) {
+		val ctorCalls = (script.getElements(TypeFilter(CtConstructorCall::class.java))?.toList()
+			?: listOf())
+			.stream()
+			.filter { (it != null) && (it.type != null) && !it.type.isArray }
+			.toList()
+
+		val constructedTypes = ctorCalls
+			.map { it.type }
+			.groupingBy { it }
+			.eachCount()
+
+		val constructedTypeArgs = ctorCalls
+			.flatMap { it.actualTypeArguments ?: listOf() }
+			.groupingBy { it }
+			.eachCount()
+
+		constructedTypes.forEach { (constructedType, count) ->
+			constructedType?.also {
+				g.nodes.findById(it.qualifiedName)?.let { constructedTypeNode ->
+					// instantiates
+					g.edges.add(makeEdge(scriptNode, constructedTypeNode, count, "instantiates"))
+				}
+			}
+		}
+	}
+
+	private fun addMethodCalls(g: Graph, allTypes: List<CtType<*>>) {
+		allTypes.forEach { type ->
+			g.nodes.findById(type.qualifiedName)?.let { node ->
+
+				type.typeMembers
+					.filter { it is CtExecutable<*> }
+					.map { it as CtExecutable<*> }
+					.forEach { script ->
+						val names = when (script) {
+							is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
+							is CtMethod<*> -> Triple(script.signature, "Operation", "method")
+							else -> {
+								Triple(script.simpleName, "Script", "script")
+							}
+						}
+						g.nodes.findById("${node.id}.${names.first}")?.let { scriptNode ->
+							val invokedMethods =
+								script.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf()
+							invokedMethods
+								.groupingBy { it.executable }
+								.eachCount()
+								.forEach { (method, count) ->
+									g.nodes.findById("${method.declaringType?.qualifiedName}.${method.signature}")
+										?.let {
+											// invokes
+											g.edges.add(makeEdge(scriptNode, it, count, "invokes"))
+										}
+								}
+						}
+					}
+			}
+		}
+	}
 }

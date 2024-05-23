@@ -15,6 +15,10 @@ open class Javapers {
         @JvmStatic
         fun main(args: Array<String>) {
             val parseResult = Options.tryParse(args)
+            if (args.isEmpty()) {
+                printInstructions(CmdLineParser(Options()))
+                exitProcess(-1)
+            }
             if (parseResult is Either.Right) {
                 println(parseResult.right.second)
                 printInstructions(parseResult.right.first)
@@ -23,6 +27,7 @@ open class Javapers {
             val options = (parseResult as Either.Left).left
             val model = Launcher().run {
                 addInputResource(options.inputPath)
+                environment.complianceLevel = 17
                 buildModel()
             }
             val graph =
