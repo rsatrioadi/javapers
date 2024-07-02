@@ -45,14 +45,14 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 						.filter { it is CtExecutable<*> }
 						.map { it as CtExecutable<*> }
 						.forEach { script ->
-							val scriptDetails = extractSignatureLabelKind(script)
-							val qualifiedName = "${node.id}.${scriptDetails.first}"
+							val scriptDetails = extractSignatureLabelKind(node.id, script)
+							val qualifiedName = scriptDetails.first
 
 							// Script
 							makeNode(
 								qualifiedName,
 								scriptDetails.second,
-								simpleName = scriptDetails.first
+								simpleName = script.simpleName
 							).let { scriptNode ->
 								scriptNode["qualifiedName"] = qualifiedName
 								addMethod(scriptNode, scriptDetails, script, g, node)
@@ -88,11 +88,11 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 		}
 	}
 
-	private fun extractSignatureLabelKind(script: CtExecutable<*>) = when (script) {
-		is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
-		is CtMethod<*> -> Triple(script.signature, "Operation", "method")
+	private fun extractSignatureLabelKind(prefix: String, script: CtExecutable<*>) = when (script) {
+		is CtConstructor<*> -> Triple(script.signature, "Constructor", "constructor")
+		is CtMethod<*> -> Triple("${prefix}.${script.signature}", "Operation", "method")
 		else -> {
-			Triple(md5(script.toString()), "Script", "script")
+			Triple("${prefix}.<init>-${md5(script.toString())}", "Script", "initializer")
 		}
 	}
 
@@ -108,7 +108,11 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 					}
 			}
 		// Let's consider String a Primitive
-		g.nodes.add(makeNode("java.lang.String", "Structure", simpleName = "String"))
+		makeNode("java.lang.String", "Structure", simpleName = "String")
+			.let { node ->
+				node["qualifiedName"] = "java.lang.String"
+				g.nodes.add(node)
+			}
 	}
 
 	private fun addPackages(g: Graph) {
@@ -143,7 +147,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 					node["kind"] = when {
 						type.isInterface -> "interface"
 						type.isEnum -> "enum"
-						type.isAbstract -> "abstract"
+						type.isAbstract -> "abstract class"
 						else -> {
 							"class"
 						}
@@ -267,39 +271,41 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 				}
 				g.nodes.add(fieldNode)
 
-				if (field.type.isArray) {
+				if (field.type != null) {
+					if (field.type.isArray) {
 
-					g.nodes.findById((field.type as CtArrayTypeReference).arrayType.qualifiedName)
-						?.let { fieldTypeNode ->
+						g.nodes.findById((field.type as CtArrayTypeReference).arrayType.qualifiedName)
+							?.let { fieldTypeNode ->
+								// Variable-type-Type
+								g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
+									.also { edge ->
+										edge["kind"] = "array"
+									})
+							}
+
+					} else {
+
+						g.nodes.findById(field.type.qualifiedName)?.let { fieldTypeNode ->
 							// Variable-type-Type
 							g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
 								.also { edge ->
-									edge["kind"] = "array"
+									edge["kind"] = "type"
 								})
 						}
 
-				} else {
+						(field.type.actualTypeArguments ?: listOf())
+							.groupingBy { it }
+							.eachCount()
+							.forEach { (typeArg, count) ->
 
-					g.nodes.findById(field.type.qualifiedName)?.let { fieldTypeNode ->
-						// Variable-type-Type
-						g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
-							.also { edge ->
-								edge["kind"] = "type"
-							})
-					}
-
-					(field.type.actualTypeArguments ?: listOf())
-						.groupingBy { it }
-						.eachCount()
-						.forEach { (typeArg, count) ->
-
-							g.nodes.findById(typeArg.qualifiedName)?.let<Node, Unit> { fieldTypeNode ->
-								// Variable-type-Type
-								g.edges.add(makeEdge(fieldNode, fieldTypeNode, count, "type").also { edge ->
-									edge["kind"] = "type argument"
-								})
+								g.nodes.findById(typeArg.qualifiedName)?.let<Node, Unit> { fieldTypeNode ->
+									// Variable-type-Type
+									g.edges.add(makeEdge(fieldNode, fieldTypeNode, count, "type").also { edge ->
+										edge["kind"] = "type argument"
+									})
+								}
 							}
-						}
+					}
 				}
 
 				// Structure-hasVariable-Variable
@@ -334,6 +340,9 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 				"unknown"
 			}
 		}
+		if (_extractFeatures) {
+
+		}
 		g.nodes.add(scriptNode)
 
 		// hasScript
@@ -345,42 +354,44 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 		scriptNode: Node,
 		script: CtExecutable<*>
 	) {
-		if (script.type.isArray) {
+		if (script.type != null) {
+			if (script.type.isArray) {
 
-			g.nodes.findById((script.type as CtArrayTypeReference).arrayType.qualifiedName)
-				?.let { scriptTypeNode ->
-					// returnType
-					g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType")
-						.also { edge ->
-							edge["kind"] = "array"
-						})
-				}
-
-		} else {
-
-			g.nodes.findById(script.type.qualifiedName)?.let { fieldTypeNode ->
-				// Variable-type-Type
-				g.edges.add(makeEdge(scriptNode, fieldTypeNode, 1, "returnType")
-					.also { edge ->
-						edge["kind"] = "type"
-					})
-			}
-
-			(script.type.actualTypeArguments ?: listOf())
-				.groupingBy { it }
-				.eachCount()
-				.forEach { (typeArg, count) ->
-
-					g.nodes.findById(typeArg.qualifiedName)?.let { fieldTypeNode ->
-						// Variable-type-Type
-						g.edges.add(makeEdge(scriptNode, fieldTypeNode, count, "returnType")
+				g.nodes.findById((script.type as CtArrayTypeReference).arrayType.qualifiedName)
+					?.let { scriptTypeNode ->
+						// returnType
+						g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType")
 							.also { edge ->
-								edge["kind"] = "type argument"
+								edge["kind"] = "array"
 							})
 					}
 
+			} else {
+
+				g.nodes.findById(script.type.qualifiedName)?.let { fieldTypeNode ->
+					// Variable-type-Type
+					g.edges.add(makeEdge(scriptNode, fieldTypeNode, 1, "returnType")
+						.also { edge ->
+							edge["kind"] = "type"
+						})
 				}
 
+				(script.type.actualTypeArguments ?: listOf())
+					.groupingBy { it }
+					.eachCount()
+					.forEach { (typeArg, count) ->
+
+						g.nodes.findById(typeArg.qualifiedName)?.let { fieldTypeNode ->
+							// Variable-type-Type
+							g.edges.add(makeEdge(scriptNode, fieldTypeNode, count, "returnType")
+								.also { edge ->
+									edge["kind"] = "type argument"
+								})
+						}
+
+					}
+
+			}
 		}
 	}
 
@@ -389,42 +400,44 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 		paramNode: Node,
 		param: CtParameter<*>
 	) {
-		if (param.type.isArray) {
+		if (param.type != null) {
+			if (param.type.isArray) {
 
-			g.nodes.findById((param.type as CtArrayTypeReference).arrayType.qualifiedName)
-				?.let { paramTypeNode ->
-					// Variable-type-Type
-					g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
-						.also { edge ->
-							edge["kind"] = "array"
-						})
-				}
-
-		} else {
-
-			g.nodes.findById(param.type.qualifiedName)?.let { paramTypeNode ->
-				// Variable-type-Type
-				g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
-					.also { edge ->
-						edge["kind"] = "type"
-					})
-			}
-
-			(param.type.actualTypeArguments ?: listOf())
-				.groupingBy { it }
-				.eachCount()
-				.forEach { (typeArg, count) ->
-
-					g.nodes.findById(typeArg.qualifiedName)?.let { paramTypeNode ->
+				g.nodes.findById((param.type as CtArrayTypeReference).arrayType.qualifiedName)
+					?.let { paramTypeNode ->
 						// Variable-type-Type
-						g.edges.add(makeEdge(paramNode, paramTypeNode, count, "type")
+						g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
 							.also { edge ->
-								edge["kind"] = "type argument"
+								edge["kind"] = "array"
 							})
 					}
 
+			} else {
+
+				g.nodes.findById(param.type.qualifiedName)?.let { paramTypeNode ->
+					// Variable-type-Type
+					g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
+						.also { edge ->
+							edge["kind"] = "type"
+						})
 				}
 
+				(param.type.actualTypeArguments ?: listOf())
+					.groupingBy { it }
+					.eachCount()
+					.forEach { (typeArg, count) ->
+
+						g.nodes.findById(typeArg.qualifiedName)?.let { paramTypeNode ->
+							// Variable-type-Type
+							g.edges.add(makeEdge(paramNode, paramTypeNode, count, "type")
+								.also { edge ->
+									edge["kind"] = "type argument"
+								})
+						}
+
+					}
+
+			}
 		}
 	}
 
@@ -467,25 +480,22 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 					.filter { it is CtExecutable<*> }
 					.map { it as CtExecutable<*> }
 					.forEach { script ->
-						val names = when (script) {
-							is CtConstructor<*> -> Triple(script.signature, "Constructor", "ctor")
-							is CtMethod<*> -> Triple(script.signature, "Operation", "method")
-							else -> {
-								Triple(script.simpleName, "Script", "script")
-							}
-						}
-						g.nodes.findById("${node.id}.${names.first}")?.let { scriptNode ->
+						val names = extractSignatureLabelKind(node.id, script)
+						g.nodes.findById(names.first)?.let { scriptNode ->
 							val invokedMethods =
 								script.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf()
 							invokedMethods
 								.groupingBy { it.executable }
 								.eachCount()
 								.forEach { (method, count) ->
-									g.nodes.findById("${method.declaringType?.qualifiedName}.${method.signature}")
-										?.let {
-											// invokes
-											g.edges.add(makeEdge(scriptNode, it, count, "invokes"))
-										}
+									if (method.declaration != null) {
+										val targetNames = extractSignatureLabelKind(method.declaringType?.qualifiedName ?: "", method.declaration)
+										g.nodes.findById(targetNames.first)
+											?.let {
+												// invokes
+												g.edges.add(makeEdge(scriptNode, it, count, "invokes"))
+											}
+									}
 								}
 						}
 					}

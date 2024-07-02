@@ -6,11 +6,13 @@ import nl.tue.win.lib.Either
 import nl.tue.win.lpg.encoder.Codecs
 import org.kohsuke.args4j.CmdLineParser
 import spoon.Launcher
+import java.io.PrintStream
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.system.exitProcess
 
-open class Javapers {
+class Javapers {
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
@@ -26,7 +28,8 @@ open class Javapers {
             }
             val options = (parseResult as Either.Left).left
             val model = Launcher().run {
-                addInputResource(options.inputPath)
+                val paths = options.inputPath.split(options.separator)
+                paths.forEach { addInputResource(it) }
                 environment.complianceLevel = 17
                 buildModel()
             }
@@ -37,6 +40,10 @@ open class Javapers {
             val graphCodec = Codecs[options.format]
             val directory = makeDir(options.outputPath)
             graphCodec?.writeToFile(graph, directory, options.baseName)
+            if (options.stdout) {
+                val printStreamUtf8 = PrintStream(System.out, true, StandardCharsets.UTF_8)
+                printStreamUtf8.println(graphCodec?.encodeGraph(graph).toString())
+            }
         }
     }
 }
