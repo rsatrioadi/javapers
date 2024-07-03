@@ -1,6 +1,5 @@
 package nl.tue.win.javapers.extractor
 
-import nl.tue.win.lib.md5
 import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
@@ -45,22 +44,21 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 						.filter { it is CtExecutable<*> }
 						.map { it as CtExecutable<*> }
 						.forEach { script ->
-							val scriptDetails = extractSignatureLabelKind(node.id, script)
-							val qualifiedName = scriptDetails.first
+							val scriptData = ScriptData(node.id, script)
 
 							// Script
 							makeNode(
-								qualifiedName,
-								scriptDetails.second,
-								simpleName = script.simpleName
+								scriptData.qualifiedName,
+								scriptData.nodeLabel,
+								simpleName = scriptData.simpleName
 							).let { scriptNode ->
-								scriptNode["qualifiedName"] = qualifiedName
-								addMethod(scriptNode, scriptDetails, script, g, node)
+								scriptNode["qualifiedName"] = scriptData.qualifiedName
+								addMethod(scriptNode, scriptData, script, g, node)
 
 								addMethodReturnType(g, scriptNode, script)
 
-								script.parameters.forEach { param ->
-									val paramQualifiedName = "${node.id}.${scriptDetails.first}.${param.simpleName}"
+								script.parameters.forEachIndexed { index, param ->
+									val paramQualifiedName = "${scriptData.qualifiedName}.${index}"
 									// Variable
 									makeNode(
 										paramQualifiedName,
@@ -85,14 +83,6 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 			}
 
 			addMethodCalls(g, allTypes)
-		}
-	}
-
-	private fun extractSignatureLabelKind(prefix: String, script: CtExecutable<*>) = when (script) {
-		is CtConstructor<*> -> Triple(script.signature, "Constructor", "constructor")
-		is CtMethod<*> -> Triple("${prefix}.${script.signature}", "Operation", "method")
-		else -> {
-			Triple("${prefix}.<init>-${md5(script.toString())}", "Script", "initializer")
 		}
 	}
 
@@ -279,7 +269,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 								// Variable-type-Type
 								g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
 									.also { edge ->
-										edge["kind"] = "array"
+										edge["kind"] = "array type"
 									})
 							}
 
@@ -316,12 +306,12 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 
 	private fun addMethod(
 		scriptNode: Node,
-		names: Triple<String, String, String>,
+		scriptData: ScriptData,
 		script: CtExecutable<*>,
 		g: Graph,
 		node: Node
 	) {
-		scriptNode["kind"] = names.third
+		scriptNode["kind"] = scriptData.nodeKind
 		scriptNode["sourceText"] = script.toString()
 		scriptNode["docComment"] = script.docComment
 		scriptNode["visibility"] = when (script) {
@@ -362,7 +352,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 						// returnType
 						g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType")
 							.also { edge ->
-								edge["kind"] = "array"
+								edge["kind"] = "array type"
 							})
 					}
 
@@ -408,7 +398,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 						// Variable-type-Type
 						g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
 							.also { edge ->
-								edge["kind"] = "array"
+								edge["kind"] = "array type"
 							})
 					}
 
@@ -480,8 +470,8 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 					.filter { it is CtExecutable<*> }
 					.map { it as CtExecutable<*> }
 					.forEach { script ->
-						val names = extractSignatureLabelKind(node.id, script)
-						g.nodes.findById(names.first)?.let { scriptNode ->
+						val invokingScriptData = ScriptData(node.id, script)
+						g.nodes.findById(invokingScriptData.qualifiedName)?.let { scriptNode ->
 							val invokedMethods =
 								script.getElements(TypeFilter(CtInvocation::class.java))?.toList() ?: listOf()
 							invokedMethods
@@ -489,8 +479,8 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 								.eachCount()
 								.forEach { (method, count) ->
 									if (method.declaration != null) {
-										val targetNames = extractSignatureLabelKind(method.declaringType?.qualifiedName ?: "", method.declaration)
-										g.nodes.findById(targetNames.first)
+										val targetScriptData = ScriptData(method.declaringType?.qualifiedName ?: "", method.declaration)
+										g.nodes.findById(targetScriptData.qualifiedName)
 											?.let {
 												// invokes
 												g.edges.add(makeEdge(scriptNode, it, count, "invokes"))
@@ -499,6 +489,43 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 								}
 						}
 					}
+			}
+		}
+	}
+}
+
+class ScriptData(declaringClassQualifiedName: String, executable: CtExecutable<*>) {
+	val qualifiedName: String
+	val simpleName: String
+	val nodeLabel: String
+	val nodeKind: String
+
+	init {
+		if (executable is CtConstructor<*>) {
+			this.qualifiedName = executable.signature
+			this.simpleName = "<init>" + executable.signature.removePrefix(declaringClassQualifiedName)
+			this.nodeLabel = "Constructor"
+			this.nodeKind = "constructor"
+		} else if (executable is CtMethod<*>) {
+			this.qualifiedName = "${declaringClassQualifiedName}.${executable.signature}"
+			this.simpleName = executable.signature
+			this.nodeLabel = "Operation"
+			if (executable.isStatic) {
+				this.nodeKind = "static method"
+			} else {
+				this.nodeKind = "method"
+			}
+		} else {
+			if (executable.toString().trim().startsWith("static")) {
+				this.qualifiedName = "${declaringClassQualifiedName}.<clinit>()"
+				this.simpleName = "<clinit>()"
+				this.nodeLabel = "Script"
+				this.nodeKind = "class initializer"
+			} else {
+				this.qualifiedName = "${declaringClassQualifiedName}.<init>${executable.hashCode()}()"
+				this.simpleName = "<init>${executable.hashCode()}()"
+				this.nodeLabel = "Script"
+				this.nodeKind = "object initializer"
 			}
 		}
 	}
