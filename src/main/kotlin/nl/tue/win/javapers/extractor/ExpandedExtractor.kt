@@ -67,6 +67,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 									).let { paramNode ->
 										paramNode["qualifiedName"] = paramQualifiedName
 										paramNode["kind"] = "parameter"
+										paramNode["parameterPosition"] = index
 										g.nodes.add(paramNode)
 
 										addMethodParamTypes(g, paramNode, param)
