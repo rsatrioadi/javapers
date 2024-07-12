@@ -10,6 +10,15 @@ import spoon.reflect.reference.CtArrayTypeReference
 import spoon.reflect.visitor.filter.TypeFilter
 
 
+private fun getSourceText(element: CtElement): String {
+	val result: String = try {
+		element.toString()
+	} catch (e: Exception) {
+		""
+	}
+	return result
+}
+
 class ExpandedExtractor(private val projectName: String, val model: CtModel) : GraphExtractor {
 
 	private var _extractFeatures: Boolean = false
@@ -144,7 +153,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 						}
 					}
 					node["docComment"] = type.docComment
-					//                    node["sourceText"] = type.toString()
+					//                    node["sourceText"] = getSourceText(type, environment)
 
 
 					if (this._extractFeatures) {
@@ -250,7 +259,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 			).let<Node, Unit> { fieldNode ->
 				fieldNode["qualifiedName"] = qualifiedName
 				fieldNode["kind"] = "field"
-				fieldNode["sourceText"] = field.toString()
+				fieldNode["sourceText"] = getSourceText(field)
 				fieldNode["visibility"] = if (field.isPublic) {
 					"public"
 				} else if (field.isPrivate) {
@@ -313,7 +322,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 		node: Node
 	) {
 		scriptNode["kind"] = scriptData.nodeKind
-		scriptNode["sourceText"] = script.toString()
+		scriptNode["sourceText"] = getSourceText(script)
 		scriptNode["docComment"] = script.docComment
 		scriptNode["visibility"] = when (script) {
 			is CtModifiable ->
@@ -517,7 +526,7 @@ class ScriptData(declaringClassQualifiedName: String, executable: CtExecutable<*
 				this.nodeKind = "method"
 			}
 		} else {
-			if (executable.toString().trim().startsWith("static")) {
+			if (getSourceText(executable).trim().startsWith("static")) {
 				this.qualifiedName = "${declaringClassQualifiedName}.<clinit>()"
 				this.simpleName = "<clinit>()"
 				this.nodeLabel = "Script"
