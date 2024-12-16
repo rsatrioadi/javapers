@@ -19,7 +19,7 @@ internal class CyJsonCodecTest {
     fun encodeNodes() {
         val n1 = mockk<Node>()
         every { n1.id } returns "node1"
-        every { n1.labels } returns setOf("label1", "label2")
+        every { n1.labels } returns mutableSetOf("label1", "label2")
         every { n1.properties } returns hashMapOf(
             Pair("strProp", "value1"),
             Pair("numProp", 2),
@@ -27,7 +27,7 @@ internal class CyJsonCodecTest {
             Pair("listProp", listOf("a","b")))
         val n2 = mockk<Node>()
         every { n2.id } returns "node2"
-        every { n2.labels } returns setOf()
+        every { n2.labels } returns mutableSetOf()
         every { n2.properties } returns hashMapOf(
             Pair("strProp", "value2"),
             Pair("numProp", 5))
@@ -47,7 +47,7 @@ internal class CyJsonCodecTest {
 
         val n1 = mockk<Node>()
         every { n1.id } returns "node1"
-        every { n1.labels } returns setOf("label1", "label2")
+        every { n1.labels } returns mutableSetOf("label1", "label2")
         every { n1.properties } returns hashMapOf(
             Pair("strProp", "value1"),
             Pair("numProp", 2),
@@ -96,7 +96,7 @@ internal class CyJsonCodecTest {
 
         val n1 = mockk<Node>()
         every { n1.id } returns "node1"
-        every { n1.labels } returns setOf("label1", "label2")
+        every { n1.labels } returns mutableSetOf("label1", "label2")
         every { n1.properties } returns hashMapOf(
             Pair("strProp", "value1"),
             Pair("numProp", 2),

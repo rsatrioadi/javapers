@@ -5,11 +5,11 @@ import nl.tue.win.lpg.encoder.GraphCodec
 
 class Node(val id: String, vararg labels: String = arrayOf()) {
 
-    val labels: Set<String>
+    val labels: MutableSet<String>
     val properties: HashMap<String, Any> = HashMap()
 
     init {
-        this.labels = setOf(*labels)
+        this.labels = mutableSetOf(*labels)
     }
 
     operator fun get(property: String): Any? {

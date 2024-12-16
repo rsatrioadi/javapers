@@ -4,6 +4,7 @@ import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
 import spoon.reflect.code.CtConstructorCall
+import spoon.reflect.code.CtFieldAccess
 import spoon.reflect.code.CtInvocation
 import spoon.reflect.declaration.*
 import spoon.reflect.reference.CtArrayTypeReference
@@ -12,6 +13,9 @@ import spoon.reflect.visitor.filter.TypeFilter
 
 private fun getSourceText(element: CtElement): String {
 	val result: String = try {
+		element.getElements(TypeFilter(CtElement::class.java)).forEach {
+			it.setImplicit<CtElement>(false)
+		}
 		element.toString()
 	} catch (e: Exception) {
 		""
@@ -93,6 +97,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 			}
 
 			addMethodCalls(g, allTypes)
+			addFieldUsages(g, allTypes)
 		}
 	}
 
@@ -232,9 +237,9 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 
 	private fun addClassNestings(g: Graph, node: Node, type: CtType<*>) {
 		type.nestedTypes.forEach { nestedType ->
-
+			node.labels.add("Container")
 			g.nodes.findById(nestedType.qualifiedName)?.let { nestedTypeNode ->
-				g.edges.add(makeEdge(node, nestedTypeNode, 1, "nests"))
+				g.edges.add(makeEdge(node, nestedTypeNode, 1, "contains"))
 			}
 		}
 	}
@@ -494,6 +499,36 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 											?.let {
 												// invokes
 												g.edges.add(makeEdge(scriptNode, it, count, "invokes"))
+											}
+									}
+								}
+						}
+					}
+			}
+		}
+	}
+
+	private fun addFieldUsages(g: Graph, allTypes: List<CtType<*>>) {
+		allTypes.forEach { type ->
+			g.nodes.findById(type.qualifiedName)?.let { node ->
+
+				type.typeMembers
+					.filter { it is CtExecutable<*> }
+					.map { it as CtExecutable<*> }
+					.forEach { script ->
+						val invokingScriptData = ScriptData(node.id, script)
+						g.nodes.findById(invokingScriptData.qualifiedName)?.let { scriptNode ->
+							val usedFields =
+								script.getElements(TypeFilter(CtFieldAccess::class.java))?.toList() ?: listOf()
+							usedFields
+								.groupingBy { it.variable }
+								.eachCount()
+								.forEach { (variable, count) ->
+									if (variable.declaration != null) {
+										g.nodes.findById("${variable.declaringType?.qualifiedName?:""}.${variable.simpleName}")
+											?.let {
+												// uses
+												g.edges.add(makeEdge(scriptNode, it, count, "uses"))
 											}
 									}
 								}

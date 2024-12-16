@@ -6,7 +6,7 @@
 
     <groupId>nl.tue.win</groupId>
     <artifactId>javapers</artifactId>
-    <version>1.1.2</version>
+    <version>1.2.0</version>
     <dependencies>
         <dependency>
             <groupId>org.jetbrains</groupId>
