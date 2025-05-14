@@ -6,7 +6,7 @@
 
     <groupId>nl.tue.win</groupId>
     <artifactId>javapers</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <dependencies>
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -87,7 +87,7 @@
                 <executions>
                     <execution>
                         <id>compile</id>
-                        <phase>compile</phase>
+                        <phase>process-sources</phase>
                         <goals>
                             <goal>compile</goal>
                         </goals>

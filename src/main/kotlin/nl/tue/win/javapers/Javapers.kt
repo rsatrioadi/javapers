@@ -1,8 +1,10 @@
 package nl.tue.win.javapers
 
-import nl.tue.win.javapers.extractor.CompactedExtractor
-import nl.tue.win.javapers.extractor.ExpandedExtractor
+import nl.tue.win.javapers.extractor.*
+import nl.tue.win.jhalstead.HalsteadMetrics
+import nl.tue.win.jhalstead.HalsteadMetricsCalculator
 import nl.tue.win.lib.Either
+import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.encoder.Codecs
 import org.kohsuke.args4j.CmdLineParser
 import spoon.Launcher
@@ -27,16 +29,44 @@ class Javapers {
                 exitProcess(-1)
             }
             val options = (parseResult as Either.Left).left
-            val model = Launcher().run {
-                val paths = options.inputPath.split(options.separator)
+            val paths = options.inputPath.split(options.separator)
+            val launcher = Launcher().apply {
                 paths.forEach { addInputResource(it) }
                 environment.complianceLevel = 17
-                buildModel()
             }
-            val graph =
-                (if (options.compacted) CompactedExtractor(options.baseName, model)
-                else ExpandedExtractor(options.baseName, model))
-                    .extract()
+            val model = launcher.buildModel()
+            val graph: Graph
+
+            if (options.useOldSchema) {
+                graph = V1Extractor(options.baseName, model).extract()
+            } else {
+                graph = V2Extractor(options.baseName, model, paths).extract()
+
+                val calculator = HalsteadMetricsCalculator()
+                val halsteadMetrics: List<HalsteadMetrics> = calculator.analyzeProject(launcher, model)
+
+                val halsteadNode = makeNode(
+                    id = "${options.baseName}#HalsteadMetrics",
+                    labels = arrayOf("Metric"),
+                    simpleName = "HalsteadMetrics"
+                )
+                halsteadNode["qualifiedName"] = "Halstead Complexity Metrics"
+                halsteadNode["kind"] = "metric"
+                graph.nodes.add(halsteadNode)
+
+                for (metric in halsteadMetrics) {
+                    val sourceId = metric.elementID
+                    val sourceNode = graph.nodes.find { it["qualifiedName"] == sourceId }
+                        ?: continue // skip if not found
+
+                    val edge = makeEdge(sourceNode, halsteadNode, label = "measures")
+                    metric.toMap().forEach { (k, v) ->
+                        if (k != "id" && k != "kind") edge[k] = v
+                    }
+                    graph.edges.add(edge)
+                }
+            }
+
             val graphCodec = Codecs[options.format]
             val directory = makeDir(options.outputPath)
             graphCodec?.writeToFile(graph, directory, options.baseName)

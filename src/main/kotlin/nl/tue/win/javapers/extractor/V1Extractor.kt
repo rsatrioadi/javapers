@@ -11,19 +11,19 @@ import spoon.reflect.reference.CtArrayTypeReference
 import spoon.reflect.visitor.filter.TypeFilter
 
 
-private fun getSourceText(element: CtElement): String {
+fun getSourceText(element: CtElement): String {
 	val result: String = try {
 		element.getElements(TypeFilter(CtElement::class.java)).forEach {
 			it.setImplicit<CtElement>(false)
 		}
-		element.toString()
+		element.toString().replace(Regex("""(?s)/\*\*.*?\*/\s*"""), "").trim()
 	} catch (e: Exception) {
 		""
 	}
 	return result
 }
 
-class ExpandedExtractor(private val projectName: String, val model: CtModel) : GraphExtractor {
+class V1Extractor(private val projectName: String, val model: CtModel) : GraphExtractor {
 
 	private var _extractFeatures: Boolean = false
 
@@ -32,6 +32,9 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 	}
 
 	fun extract(extractFeatures: Boolean): Graph {
+
+		_extractFeatures = extractFeatures
+
 		return Graph(projectName).also { g ->
 
 			addPrimitives(g)
@@ -346,7 +349,7 @@ class ExpandedExtractor(private val projectName: String, val model: CtModel) : G
 			}
 		}
 		if (_extractFeatures) {
-
+			val features = MethodFeatures(script, model)
 		}
 		g.nodes.add(scriptNode)
 

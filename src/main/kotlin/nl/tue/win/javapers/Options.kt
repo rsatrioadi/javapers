@@ -18,10 +18,10 @@ class Options {
     @Option(name = "-n", aliases = ["--name"], usage = "Base file name", metaVar = "BASE_NAME")
     var baseName = "JavaProject"
 
-    @Option(name = "-c", aliases = ["--abstract"], usage = "Generate abstract knowledge graph")
-    var compacted = false
+    @Option(name = "-1", aliases = ["--version-1"], usage = "Use old graph schema (Containers and Structures instead of Scopes and Types")
+    var useOldSchema = false
 
-    @Option(name = "-a", aliases = ["--stdout"], usage = "Write output to stdout in addition to file(s)")
+    @Option(name = "-a", aliases = ["--stdout"], usage = "Write output to stdout instead of file(s)")
     var stdout = false
 
     @Option(name = "-s", aliases = ["--separator"], usage = "Separator for splitting input paths", metaVar = "SEPARATOR")
