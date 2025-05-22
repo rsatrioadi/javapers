@@ -12,6 +12,7 @@ import spoon.reflect.reference.CtExecutableReference
 import spoon.reflect.reference.CtTypeReference
 import spoon.reflect.reference.CtVariableReference
 import spoon.reflect.visitor.filter.TypeFilter
+import spoon.support.reflect.declaration.CtTypeParameterImpl
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -133,14 +134,18 @@ class V2Extractor(
 		// ─────────────────────────────────────────────────────────────────────
 		data class TypeInfo(val node: Node, val ct: CtType<*>, val file: Path)
 
+		val typesMap = mutableMapOf<CtTypeReference<*>, Node>()
+
 		val types = model
 			.getElements(TypeFilter(CtType::class.java))
 			.mapNotNull { ct ->
+//				println(ct.simpleName + ", " + ct.reference)
 				ct.position.file?.toURI()?.let { uri ->
 					val p = Paths.get(uri).toAbsolutePath().normalize()
 					val id = ct.qualifiedName  // unique
 					val n = makeNode(id, labels = arrayOf("Type"), simpleName = ct.simpleName)
 					val kind = when {
+						ct is CtTypeParameterImpl -> "type parameter"
 						ct.isInterface -> "interface"
 						ct.isEnum      -> "enum"
 						ct.isClass     -> if (ct.isAbstract) "abstract class" else "class"
@@ -154,6 +159,7 @@ class V2Extractor(
 							else if (ct.isPrivate) "private"
 							else "default"
 					g.nodes.add(n)
+					typesMap[ct.reference] = n
 					TypeInfo(n, ct, p)
 				}
 			}
@@ -240,8 +246,8 @@ class V2Extractor(
 				vars[fld] = v
 
 				g.edges.add(makeEdge(ti.node, v, label = "encapsulates"))
-				fld.type.qualifiedName?.let { qn ->
-					typesByQn[qn]?.let { g.edges.add(makeEdge(v, it.node, label = "typed")) }
+				fld.type.let { typeRef ->
+					typesMap[typeRef]?.let { g.edges.add(makeEdge(v, it, label = "typed")) }
 				}
 			}
 		}
@@ -256,7 +262,7 @@ class V2Extractor(
 		// b) methods & ctors → Operation
 		types.forEach { ti ->
 			ti.ct.declaredExecutables.forEach { exec ->
-				val sig = if (exec.isConstructor) simpleSig(exec) else exec.signature                  // unique within project
+				val sig = if (exec.isConstructor) simpleSig(exec) else exec.signature
 				val opId = "${ti.ct.qualifiedName}#$sig"
 				val o = makeNode(opId, labels = arrayOf("Operation"), simpleName = sig)
 				val kind = if (exec.isConstructor) "constructor" else "method"
@@ -290,14 +296,19 @@ class V2Extractor(
 					typesByQn[rqn]?.let { g.edges.add(makeEdge(o, it.node, label = "returns")) }
 				}
 				// parameters: invert
-				exec.executableDeclaration.parameters.forEach { param ->
+				exec.executableDeclaration.parameters.forEachIndexed { index,param ->
 					val pid = "${ti.ct.qualifiedName}#$sig:param:${param.simpleName}"
 					val p = makeNode(pid, labels = arrayOf("Variable"), simpleName = param.simpleName)
-					p["qualifiedName"] = "${ti.ct.qualifiedName}#${sig}:param:${param.simpleName}"
+					p["qualifiedName"] = "${ti.ct.qualifiedName}#${sig}:param[${index}]:${param.simpleName}"
 					p["kind"] = "parameter"
+					p["parameterIndex"] = index
 					g.nodes.add(p)
-//					vars[param.reference] = p
+					vars[param.reference] = p
 					g.edges.add(makeEdge(p, o, label = "parameterizes"))
+
+					param.type.let { typeRef ->
+						typesMap[typeRef]?.let { g.edges.add(makeEdge(p, it, label = "typed")) }
+					}
 				}
 			}
 		}
