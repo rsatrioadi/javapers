@@ -246,18 +246,17 @@ class V2Extractor(
 			}
 		}
 
-		fun simplifySig(sig:String, pkg:String): String {
-			val prefix = "$pkg."
-			if (sig.startsWith(prefix)) {
-				return sig.replaceFirst(prefix, "")
-			}
-			return sig;
+		fun simpleSig(exec: CtExecutableReference<*>): String {
+			val sig = exec.signature
+			val classFullName = exec.declaringType.qualifiedName
+			val classSimpleName = exec.declaringType.simpleName
+			return sig.replaceFirst(classFullName, classSimpleName)
 		}
 
 		// b) methods & ctors → Operation
 		types.forEach { ti ->
 			ti.ct.declaredExecutables.forEach { exec ->
-				val sig = exec.signature                  // unique within project
+				val sig = if (exec.isConstructor) simpleSig(exec) else exec.signature                  // unique within project
 				val opId = "${ti.ct.qualifiedName}#$sig"
 				val o = makeNode(opId, labels = arrayOf("Operation"), simpleName = sig)
 				val kind = if (exec.isConstructor) "constructor" else "method"
