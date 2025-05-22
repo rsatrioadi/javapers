@@ -1,5 +1,9 @@
 package nl.tue.win.javapers.extractor
 
+import nl.tue.win.codepers.GraphExtractor
+import nl.tue.win.codepers.makeEdge
+import nl.tue.win.codepers.makeNode
+import nl.tue.win.codepers.primitiveTypes
 import nl.tue.win.lpg.Graph
 import spoon.reflect.CtModel
 import spoon.reflect.code.*

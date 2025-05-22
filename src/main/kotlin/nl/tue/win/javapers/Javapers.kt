@@ -1,5 +1,7 @@
 package nl.tue.win.javapers
 
+import nl.tue.win.codepers.makeEdge
+import nl.tue.win.codepers.makeNode
 import nl.tue.win.javapers.extractor.*
 import nl.tue.win.jhalstead.HalsteadMetrics
 import nl.tue.win.jhalstead.HalsteadMetricsCalculator
@@ -33,6 +35,7 @@ class Javapers {
             val launcher = Launcher().apply {
                 paths.forEach { addInputResource(it) }
                 environment.complianceLevel = 17
+                environment.ignoreSyntaxErrors = true
             }
             val model = launcher.buildModel()
             val graph: Graph
@@ -46,7 +49,7 @@ class Javapers {
                 val halsteadMetrics: List<HalsteadMetrics> = calculator.analyzeProject(launcher, model)
 
                 val halsteadNode = makeNode(
-                    id = "${options.baseName}#HalsteadMetrics",
+                    id = "Metrics#HalsteadMetrics",
                     labels = arrayOf("Metric"),
                     simpleName = "HalsteadMetrics"
                 )

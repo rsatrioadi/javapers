@@ -1,5 +1,6 @@
 package nl.tue.win.javapers.extractor
 
+import nl.tue.win.codepers.*
 import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
@@ -8,6 +9,7 @@ import spoon.reflect.code.CtFieldAccess
 import spoon.reflect.code.CtInvocation
 import spoon.reflect.declaration.*
 import spoon.reflect.reference.CtArrayTypeReference
+import spoon.reflect.reference.CtTypeReference
 import spoon.reflect.visitor.filter.TypeFilter
 
 
@@ -285,7 +287,8 @@ class V1Extractor(private val projectName: String, val model: CtModel) : GraphEx
 						g.nodes.findById((field.type as CtArrayTypeReference).arrayType.qualifiedName)
 							?.let { fieldTypeNode ->
 								// Variable-type-Type
-								g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
+								g.edges.add(
+									makeEdge(fieldNode, fieldTypeNode, 1, "type")
 									.also { edge ->
 										edge["kind"] = "array type"
 									})
@@ -295,7 +298,8 @@ class V1Extractor(private val projectName: String, val model: CtModel) : GraphEx
 
 						g.nodes.findById(field.type.qualifiedName)?.let { fieldTypeNode ->
 							// Variable-type-Type
-							g.edges.add(makeEdge(fieldNode, fieldTypeNode, 1, "type")
+							g.edges.add(
+								makeEdge(fieldNode, fieldTypeNode, 1, "type")
 								.also { edge ->
 									edge["kind"] = "type"
 								})
@@ -368,7 +372,8 @@ class V1Extractor(private val projectName: String, val model: CtModel) : GraphEx
 				g.nodes.findById((script.type as CtArrayTypeReference).arrayType.qualifiedName)
 					?.let { scriptTypeNode ->
 						// returnType
-						g.edges.add(makeEdge(scriptNode, scriptTypeNode, 1, "returnType")
+						g.edges.add(
+							makeEdge(scriptNode, scriptTypeNode, 1, "returnType")
 							.also { edge ->
 								edge["kind"] = "array type"
 							})
@@ -378,7 +383,8 @@ class V1Extractor(private val projectName: String, val model: CtModel) : GraphEx
 
 				g.nodes.findById(script.type.qualifiedName)?.let { fieldTypeNode ->
 					// Variable-type-Type
-					g.edges.add(makeEdge(scriptNode, fieldTypeNode, 1, "returnType")
+					g.edges.add(
+						makeEdge(scriptNode, fieldTypeNode, 1, "returnType")
 						.also { edge ->
 							edge["kind"] = "type"
 						})
@@ -391,7 +397,8 @@ class V1Extractor(private val projectName: String, val model: CtModel) : GraphEx
 
 						g.nodes.findById(typeArg.qualifiedName)?.let { fieldTypeNode ->
 							// Variable-type-Type
-							g.edges.add(makeEdge(scriptNode, fieldTypeNode, count, "returnType")
+							g.edges.add(
+								makeEdge(scriptNode, fieldTypeNode, count, "returnType")
 								.also { edge ->
 									edge["kind"] = "type argument"
 								})
@@ -414,7 +421,8 @@ class V1Extractor(private val projectName: String, val model: CtModel) : GraphEx
 				g.nodes.findById((param.type as CtArrayTypeReference).arrayType.qualifiedName)
 					?.let { paramTypeNode ->
 						// Variable-type-Type
-						g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
+						g.edges.add(
+							makeEdge(paramNode, paramTypeNode, 1, "type")
 							.also { edge ->
 								edge["kind"] = "array type"
 							})
@@ -424,7 +432,8 @@ class V1Extractor(private val projectName: String, val model: CtModel) : GraphEx
 
 				g.nodes.findById(param.type.qualifiedName)?.let { paramTypeNode ->
 					// Variable-type-Type
-					g.edges.add(makeEdge(paramNode, paramTypeNode, 1, "type")
+					g.edges.add(
+						makeEdge(paramNode, paramTypeNode, 1, "type")
 						.also { edge ->
 							edge["kind"] = "type"
 						})
@@ -437,7 +446,8 @@ class V1Extractor(private val projectName: String, val model: CtModel) : GraphEx
 
 						g.nodes.findById(typeArg.qualifiedName)?.let { paramTypeNode ->
 							// Variable-type-Type
-							g.edges.add(makeEdge(paramNode, paramTypeNode, count, "type")
+							g.edges.add(
+								makeEdge(paramNode, paramTypeNode, count, "type")
 								.also { edge ->
 									edge["kind"] = "type argument"
 								})
@@ -578,3 +588,6 @@ class ScriptData(declaringClassQualifiedName: String, executable: CtExecutable<*
 		}
 	}
 }
+
+val CtTypedElement<*>.typeOrArrayType: CtTypeReference<*>?
+    get() = if (this.type.isArray) (this.type as CtArrayTypeReference).arrayType else this.type

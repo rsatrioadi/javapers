@@ -1,5 +1,8 @@
 package nl.tue.win.javapers.extractor
 
+import nl.tue.win.codepers.GraphExtractor
+import nl.tue.win.codepers.makeEdge
+import nl.tue.win.codepers.makeNode
 import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.Node
 import spoon.reflect.CtModel
@@ -243,14 +246,22 @@ class V2Extractor(
 			}
 		}
 
+		fun simplifySig(sig:String, pkg:String): String {
+			val prefix = "$pkg."
+			if (sig.startsWith(prefix)) {
+				return sig.replaceFirst(prefix, "")
+			}
+			return sig;
+		}
+
 		// b) methods & ctors → Operation
 		types.forEach { ti ->
 			ti.ct.declaredExecutables.forEach { exec ->
-				val sig = exec.signature                   // unique within project
+				val sig = exec.signature                  // unique within project
 				val opId = "${ti.ct.qualifiedName}#$sig"
-				val o = makeNode(opId, labels = arrayOf("Operation"), simpleName = exec.signature)
+				val o = makeNode(opId, labels = arrayOf("Operation"), simpleName = sig)
 				val kind = if (exec.isConstructor) "constructor" else "method"
-				o["qualifiedName"] = "${ti.ct.qualifiedName}#${exec.signature}"
+				o["qualifiedName"] = "${ti.ct.qualifiedName}#$sig"
 				o["kind"] = kind
 				o["sourceText"] = getSourceText(exec.executableDeclaration)
 				o["docComment"] = exec.executableDeclaration.docComment ?: ""
@@ -286,7 +297,7 @@ class V2Extractor(
 					p["qualifiedName"] = "${ti.ct.qualifiedName}#${sig}:param:${param.simpleName}"
 					p["kind"] = "parameter"
 					g.nodes.add(p)
-					vars[param.reference] = p
+//					vars[param.reference] = p
 					g.edges.add(makeEdge(p, o, label = "parameterizes"))
 				}
 			}
@@ -333,7 +344,7 @@ class V2Extractor(
 		// 7) NUM METHODS METRIC (single Metric node, per‐class edges)
 		// ─────────────────────────────────────────────────────────────────────
 		// create one global Metric node
-		val metricId = "${projectName}#NumMethods"
+		val metricId = "Metrics#NumMethods"
 		val numMethodsNode = makeNode(
 			id         = metricId,
 			labels     = arrayOf("Metric"),
@@ -355,7 +366,7 @@ class V2Extractor(
 		// 8) NUM STATEMENTS METRIC (single Metric node, per‐operation edges)
 		// ─────────────────────────────────────────────────────────────────────
 		val numStmtsNode = makeNode(
-			id = "${projectName}#NumStatements",
+			id = "Metrics#NumStatements",
 			labels = arrayOf("Metric"),
 			simpleName = "NumStatements"
 		)
