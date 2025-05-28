@@ -11,7 +11,6 @@ import spoon.reflect.declaration.*
 import spoon.reflect.reference.CtExecutableReference
 import spoon.reflect.reference.CtTypeReference
 import spoon.reflect.reference.CtVariableReference
-import spoon.reflect.visitor.filter.TypeFilter
 import spoon.support.reflect.declaration.CtTypeParameterImpl
 import java.nio.file.Files
 import java.nio.file.Path
@@ -136,8 +135,9 @@ class V2Extractor(
 
 		val typesMap = mutableMapOf<CtTypeReference<*>, Node>()
 
-		val types = model
-			.getElements(TypeFilter(CtType::class.java))
+		val types: List<TypeInfo> = model
+			.allTypes
+			.flatMap { allTypesForReal(it) }
 			.mapNotNull { ct ->
 //				println(ct.simpleName + ", " + ct.reference)
 				ct.position.file?.toURI()?.let { uri ->
@@ -297,9 +297,9 @@ class V2Extractor(
 				}
 				// parameters: invert
 				exec.executableDeclaration.parameters.forEachIndexed { index,param ->
-					val pid = "${ti.ct.qualifiedName}#$sig:param:${param.simpleName}"
+					val pid = "${ti.ct.qualifiedName}#${sig}:param[${index}]:${param.simpleName}"
 					val p = makeNode(pid, labels = arrayOf("Variable"), simpleName = param.simpleName)
-					p["qualifiedName"] = "${ti.ct.qualifiedName}#${sig}:param[${index}]:${param.simpleName}"
+					p["qualifiedName"] = pid
 					p["kind"] = "parameter"
 					p["parameterIndex"] = index
 					g.nodes.add(p)

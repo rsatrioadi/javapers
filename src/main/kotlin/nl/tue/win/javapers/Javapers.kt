@@ -42,8 +42,10 @@ class Javapers {
 
             if (options.useOldSchema) {
                 graph = V1Extractor(options.baseName, model).extract()
+                graph["schemaVersion"] = "1.2.0"
             } else {
                 graph = V2Extractor(options.baseName, model, paths).extract()
+                graph["schemaVersion"] = "2.0"
 
                 val calculator = HalsteadMetricsCalculator()
                 val halsteadMetrics: List<HalsteadMetrics> = calculator.analyzeProject(launcher, model)

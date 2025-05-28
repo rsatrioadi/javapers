@@ -12,6 +12,7 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
         elements.put("edges", this.encodeEdges(graph.edges))
         val obj = JSONObject()
         obj.put("elements", elements)
+        obj.put("properties", JSONObject(graph.properties))
         return obj
     }
 
