@@ -59,15 +59,26 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
     }
 
     override fun decodeGraph(encodedGraph: JSONObject): Graph {
-        TODO("Not yet implemented")
+        val elements = encodedGraph.getJSONObject("elements")
+        val nodes = decodeNodes(elements.getJSONArray("nodes"))
+        val edges = decodeEdges(elements.getJSONArray("edges"))
+        val g = Graph(encodedGraph.optJSONObject("properties")?.optString("id") ?: "unknown", nodes, edges)
+        encodedGraph.optJSONObject("properties")?.keys()?.forEach { k ->
+            g[k] = encodedGraph.getJSONObject("properties")[k]
+        }
+        return g
     }
 
     override fun decodeNodes(encodedNodes: JSONArray): Nodes {
-        TODO("Not yet implemented")
+        val result = Nodes()
+        for (i in 0 until encodedNodes.length()) result.add(decodeNode(encodedNodes.getJSONObject(i)))
+        return result
     }
 
     override fun decodeEdges(encodedEdges: JSONArray): Edges {
-        TODO("Not yet implemented")
+        val result = Edges()
+        for (i in 0 until encodedEdges.length()) result.add(decodeEdge(encodedEdges.getJSONObject(i)))
+        return result
     }
 
     override fun decodeNode(encodedNode: JSONObject): Node {

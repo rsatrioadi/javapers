@@ -10,6 +10,8 @@ import nl.tue.win.lpg.Graph
 import nl.tue.win.lpg.encoder.Codecs
 import org.kohsuke.args4j.CmdLineParser
 import spoon.Launcher
+import spoon.reflect.CtModel
+import java.io.File
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -31,44 +33,42 @@ class Javapers {
                 exitProcess(-1)
             }
             val options = (parseResult as Either.Left).left
-            val paths = options.inputPath.split(options.separator)
-            val launcher = Launcher().apply {
-                paths.forEach { addInputResource(it) }
-                environment.complianceLevel = 17
-                environment.ignoreSyntaxErrors = true
-            }
-            val model = launcher.buildModel()
+
+            val extraCp = options.classpath
+                .split(File.pathSeparator)
+                .filter { it.isNotEmpty() }
+            val effectiveExcludes = DEFAULT_EXCLUDES + options.excludeGlobs
+
             val graph: Graph
 
-            if (options.useOldSchema) {
-                graph = V1Extractor(options.baseName, model).extract()
-                graph["schemaVersion"] = "1.2.0"
-            } else {
-                graph = V2Extractor(options.baseName, model, paths).extract()
-                graph["schemaVersion"] = "2.0"
-
-                val calculator = HalsteadMetricsCalculator()
-                val halsteadMetrics: List<HalsteadMetrics> = calculator.analyzeProject(launcher, model)
-
-                val halsteadNode = makeNode(
-                    id = "Metrics#HalsteadMetrics",
-                    labels = arrayOf("Metric"),
-                    simpleName = "HalsteadMetrics"
+            if (options.pomPath.isNotEmpty()) {
+                val extractor = MavenV2Extractor(
+                    projectName    = options.baseName,
+                    pomPath        = options.pomPath,
+                    excludeGlobs   = effectiveExcludes,
+                    extraClasspath = extraCp
                 )
-                halsteadNode["qualifiedName"] = "Halstead Complexity Metrics"
-                halsteadNode["kind"] = "metric"
-                graph.nodes.add(halsteadNode)
+                graph = extractor.extract()
+                graph["schemaVersion"] = "2.0"
+                injectHalstead(graph, extractor.launcher, extractor.model)
+            } else {
+                val paths = options.inputPath.split(options.separator)
+                // Walk the tree once, applying excludes and deduplicating by qualified
+                // name so Spoon never sees two files that declare the same type.
+                val javaFiles = collectJavaFiles(paths, effectiveExcludes)
+                val (launcher, model) = buildSpoonModel(
+                    javaFiles,
+                    complianceLevel = 17,
+                    extraClasspath = extraCp.toTypedArray()
+                )
 
-                for (metric in halsteadMetrics) {
-                    val sourceId = metric.elementID
-                    val sourceNode = graph.nodes.find { it["qualifiedName"] == sourceId }
-                        ?: continue // skip if not found
-
-                    val edge = makeEdge(sourceNode, halsteadNode, label = "measures")
-                    metric.toMap().forEach { (k, v) ->
-                        if (k != "id" && k != "kind") edge[k] = v
-                    }
-                    graph.edges.add(edge)
+                if (options.useOldSchema) {
+                    graph = V1Extractor(options.baseName, model).extract()
+                    graph["schemaVersion"] = "1.2.0"
+                } else {
+                    graph = V2Extractor(options.baseName, model, paths, effectiveExcludes).extract()
+                    graph["schemaVersion"] = "2.0"
+                    injectHalstead(graph, launcher, model)
                 }
             }
 
@@ -78,6 +78,32 @@ class Javapers {
             if (options.stdout) {
                 val printStreamUtf8 = PrintStream(System.out, true, StandardCharsets.UTF_8)
                 printStreamUtf8.println(graphCodec?.encodeGraph(graph).toString())
+            }
+        }
+
+        private fun injectHalstead(graph: Graph, launcher: Launcher, model: CtModel) {
+            val calculator = HalsteadMetricsCalculator()
+            val halsteadMetrics: List<HalsteadMetrics> = calculator.analyzeProject(launcher, model)
+
+            val halsteadNode = makeNode(
+                id = "Metrics#HalsteadMetrics",
+                labels = arrayOf("Metric"),
+                simpleName = "HalsteadMetrics"
+            )
+            halsteadNode["qualifiedName"] = "Halstead Complexity Metrics"
+            halsteadNode["kind"] = "metric"
+            graph.nodes.add(halsteadNode)
+
+            for (metric in halsteadMetrics) {
+                val sourceId = metric.elementID
+                val sourceNode = graph.nodes.find { it["qualifiedName"] == sourceId }
+                    ?: continue
+
+                val edge = makeEdge(sourceNode, halsteadNode, label = "measures")
+                metric.toMap().forEach { (k, v) ->
+                    if (k != "id" && k != "kind") edge[k] = v
+                }
+                graph.edges.add(edge)
             }
         }
     }
