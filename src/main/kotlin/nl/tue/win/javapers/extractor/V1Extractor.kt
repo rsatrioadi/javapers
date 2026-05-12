@@ -13,11 +13,11 @@ import spoon.reflect.reference.CtTypeReference
 import spoon.reflect.visitor.filter.TypeFilter
 
 
-fun getSourceText(element: CtElement): String {
+fun getSourceText(element: CtElement?): String {
 	val result: String = try {
-		element.getElements(TypeFilter(CtElement::class.java)).forEach {
-			it.setImplicit<CtElement>(false)
-		}
+        element?.getElements(TypeFilter(CtElement::class.java))?.forEach {
+            it.setImplicit<CtElement>(false)
+        }
 		element.toString().replace(Regex("""(?s)/\*\*.*?\*/\s*"""), "").trim()
 	} catch (e: Exception) {
 		""

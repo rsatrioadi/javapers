@@ -55,7 +55,8 @@ object CyJsonCodec : GraphCodec<JSONObject, JSONArray, JSONArray, JSONObject, JS
     override fun writeToFile(graph: Graph, directory: String, baseName: String) {
         val path =
             "${if (directory.endsWith(File.separator)) directory else "$directory${File.separator}"}${baseName}.json"
-        File(path).writeText(encodeGraph(graph).toString())
+        val jo = encodeGraph(graph)
+        File(path).writeText(jo.toString())
     }
 
     override fun decodeGraph(encodedGraph: JSONObject): Graph {

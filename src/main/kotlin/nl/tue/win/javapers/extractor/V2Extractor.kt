@@ -220,17 +220,21 @@ fun runV2Pipeline(
 		}
 
 		// import → requires
-		Files.readAllLines(path)
-			.asSequence()
-			.map(String::trim)
-			.filter { it.startsWith("import ") }
-			.map { it.removePrefix("import ").removeSuffix(";") }
-			.distinct()
-			.forEach { imp ->
-				typesByQn[imp]?.file?.let { req ->
-					fileNodes[req]?.let { g.edges.add(makeEdge(fNode, it, label = "requires")) }
+		try {
+			Files.readAllLines(path)
+				.asSequence()
+				.map(String::trim)
+				.filter { it.startsWith("import ") }
+				.map { it.removePrefix("import ").removeSuffix(";") }
+				.distinct()
+				.forEach { imp ->
+					typesByQn[imp]?.file?.let { req ->
+						fileNodes[req]?.let { g.edges.add(makeEdge(fNode, it, label = "requires")) }
+					}
 				}
-			}
+		} catch (e: Exception) {
+			GraphExtractor.logger.atWarn().setMessage(e.message)
+		}
 	}
 
 	// Scope → encloses → Type
@@ -278,10 +282,10 @@ fun runV2Pipeline(
 			v["qualifiedName"] = "${ti.ct.qualifiedName}.${fld.simpleName}"
 			v["kind"] = "field"
 			v["sourceText"] = getSourceText(fld.declaration)
-			v["docComment"] = fld.declaration.docComment ?: ""
-			v["visibility"] = if (fld.declaration.isPublic) "public"
-					else if (fld.declaration.isProtected) "protected "
-					else if (fld.declaration.isPrivate) "private"
+			v["docComment"] = fld.declaration?.docComment ?: ""
+			v["visibility"] = if (fld.declaration?.isPublic ?: false) "public"
+					else if (fld.declaration?.isProtected ?: false) "protected "
+					else if (fld.declaration?.isPrivate ?: false) "private"
 					else "default"
 			g.nodes.add(v)
 			vars[fld] = v
