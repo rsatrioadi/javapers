@@ -68,7 +68,7 @@ fun runV2Pipeline(
 		val dirNode = makeNode(
 			id = path.toString(),
 			labels = arrayOf("Folder"),
-			simpleName = path.fileName.toString()
+			simpleName = path.fileName?.toString() ?: path.toString()
 		)
 		dirNode["qualifiedName"] = dirNode.id
 		dirNode["kind"] = "folder"
@@ -81,12 +81,13 @@ fun runV2Pipeline(
 				if (c.isExcluded()) return@forEach
 				if (Files.isDirectory(c)) {
 					processDir(c)
-					g.edges.add(makeEdge(dirNode, folderNodes[c]!!, label = "contains"))
+					val childNode = folderNodes[c]
+					if (childNode != null) g.edges.add(makeEdge(dirNode, childNode, label = "contains"))
 				} else {
 					val fileNode = makeNode(
 						id = c.toString(),
 						labels = arrayOf("File"),
-						simpleName = c.fileName.toString()
+						simpleName = c.fileName?.toString() ?: c.toString()
 					)
 					fileNode["qualifiedName"] = fileNode.id
 					fileNode["kind"] = "file"
@@ -110,7 +111,7 @@ fun runV2Pipeline(
 				val single = makeNode(
 					id = root.toString(),
 					labels = arrayOf("File"),
-					simpleName = root.fileName.toString()
+					simpleName = root.fileName?.toString() ?: root.toString()
 				)
 				single["qualifiedName"] = single.id
 				single["kind"] = "file"
@@ -233,7 +234,7 @@ fun runV2Pipeline(
 					}
 				}
 		} catch (e: Exception) {
-			GraphExtractor.logger.atWarn().setMessage(e.message)
+			GraphExtractor.logger.atWarn().setMessage(e.message ?: "unknown error")
 		}
 	}
 
@@ -291,30 +292,32 @@ fun runV2Pipeline(
 			vars[fld] = v
 
 			g.edges.add(makeEdge(ti.node, v, label = "encapsulates"))
-			fld.type.let { typeRef ->
+			fld.type?.let { typeRef ->
 				typesMap[typeRef]?.let { g.edges.add(makeEdge(v, it, label = "typed")) }
 			}
 		}
 	}
 
 	fun simpleSig(exec: CtExecutableReference<*>): String {
-		val sig = exec.signature
-		val classFullName = exec.declaringType.qualifiedName
-		val classSimpleName = exec.declaringType.simpleName
+		val sig = exec.signature ?: return ""
+		val declaringType = exec.declaringType ?: return sig
+		val classFullName = declaringType.qualifiedName ?: return sig
+		val classSimpleName = declaringType.simpleName ?: return sig
 		return sig.replaceFirst(classFullName, classSimpleName)
 	}
 
 	// b) methods & ctors → Operation
 	types.forEach { ti ->
 		ti.ct.declaredExecutables.forEach { exec ->
-			val sig = if (exec.isConstructor) simpleSig(exec) else exec.signature
+			val sig = if (exec.isConstructor) simpleSig(exec) else (exec.signature ?: "")
 			val opId = "${ti.ct.qualifiedName}#$sig"
 			val o = makeNode(opId, labels = arrayOf("Operation"), simpleName = sig)
 			val kind = if (exec.isConstructor) "constructor" else "method"
 			o["qualifiedName"] = "${ti.ct.qualifiedName}#$sig"
 			o["kind"] = kind
-			o["sourceText"] = getSourceText(exec.executableDeclaration)
-			o["docComment"] = exec.executableDeclaration.docComment ?: ""
+			val execDecl = exec.executableDeclaration
+			o["sourceText"] = getSourceText(execDecl)
+			o["docComment"] = execDecl?.docComment ?: ""
 			o["visibility"] = when (exec.declaration) {
 				is CtModifiable -> {
 					val mod = exec.declaration as CtModifiable
@@ -334,14 +337,16 @@ fun runV2Pipeline(
 				}
 			}
 			g.nodes.add(o)
-			ops += OpInfo(o, exec.executableDeclaration)
+			if (execDecl != null) {
+				ops += OpInfo(o, execDecl)
+			}
 
 			g.edges.add(makeEdge(ti.node, o, label = "encapsulates"))
-			exec.type.qualifiedName?.let { rqn ->
+			exec.type?.qualifiedName?.let { rqn ->
 				typesByQn[rqn]?.let { g.edges.add(makeEdge(o, it.node, label = "returns")) }
 			}
 			// parameters: invert
-			exec.executableDeclaration.parameters.forEachIndexed { index,param ->
+			execDecl?.parameters?.forEachIndexed { index, param ->
 				val pid = "${ti.ct.qualifiedName}#${sig}:param[${index}]:${param.simpleName}"
 				val p = makeNode(pid, labels = arrayOf("Variable"), simpleName = param.simpleName)
 				p["qualifiedName"] = pid
@@ -351,7 +356,7 @@ fun runV2Pipeline(
 				vars[param.reference] = p
 				g.edges.add(makeEdge(p, o, label = "parameterizes"))
 
-				param.type.let { typeRef ->
+				param.type?.let { typeRef ->
 					typesMap[typeRef]?.let { g.edges.add(makeEdge(p, it, label = "typed")) }
 				}
 			}
@@ -375,14 +380,14 @@ fun runV2Pipeline(
 					}
 
 					is CtConstructorCall<*> -> {
-						child.type.qualifiedName?.let { qn ->
+						child.type?.qualifiedName?.let { qn ->
 							typesByQn[qn]?.let { g.edges.add(makeEdge(oNode, it.node, label = "instantiates")) }
 						}
 					}
 
 					is CtFieldRead<*>, is CtFieldWrite<*> -> {
-						val ref = child.variable
-						vars[ref]?.let { g.edges.add(makeEdge(oNode, it, label = "uses")) }
+						val ref = (child as? CtVariableAccess<*>)?.variable
+						ref?.let { vars[it]?.let { vn -> g.edges.add(makeEdge(oNode, vn, label = "uses")) } }
 					}
 				}
 			}
@@ -440,10 +445,9 @@ fun runV2Pipeline(
 
 // helper to find overridden in super‐classes and interfaces
 private fun CtExecutable<*>.overriddenExecutables(): List<CtExecutableReference<*>> {
+	val ref = this.reference ?: return emptyList()
+	val declaringTypeRef = ref.declaringType ?: return emptyList()
 	val owners = mutableListOf<CtTypeReference<*>>()
-	// .reference.declaringType is the class/interface that contains this method;
-	// .type would give the return type, which is wrong
-	val declaringTypeRef = this.reference.declaringType
 	declaringTypeRef.superclass?.let { owners += it }
 	owners += declaringTypeRef.superInterfaces
 
