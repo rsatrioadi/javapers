@@ -81,8 +81,8 @@ fun runV2Pipeline(
 				if (c.isExcluded()) return@forEach
 				if (Files.isDirectory(c)) {
 					processDir(c)
-					val childNode = folderNodes[c]
-					if (childNode != null) g.edges.add(makeEdge(dirNode, childNode, label = "contains"))
+					val childNode = folderNodes[c] ?: return@forEach
+					g.edges.add(makeEdge(dirNode, childNode, label = "contains"))
 				} else {
 					val fileNode = makeNode(
 						id = c.toString(),
